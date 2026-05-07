@@ -1,0 +1,12 @@
+node_modules
+dist
+.next
+build
+.env
+.env.local
+*.env
+uploads/
+.DS_Store
+*.log
+.pnpm-store
+prisma/dev.db
