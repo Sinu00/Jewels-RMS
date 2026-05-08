@@ -6,25 +6,71 @@
 
 @layer base {
   :root {
-    --radius: 0.75rem;
+    --gold:           #B8860B;
+    --gold-light:     #D4A017;
+    --gold-deep:      #8B6508;
+    --bg:             #FAFAF8;
+    --card:           #FFFDF7;
+    --ink:            #1A1A16;
+    --muted:          #6B6860;
+    --border:         #E8E4DC;
+    --radius-sm:      6px;
+    --radius-md:      8px;
+    --radius-lg:      12px;
+    --radius-xl:      16px;
   }
 
   * {
-    @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
     @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
   }
 
-  /* Smooth tap targets on mobile */
+  /* Precise focus rings — gold, 2px offset */
+  :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  /* Remove tap flash on mobile */
   button, a {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Scroll behaviour */
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: var(--font-dm-serif), 'DM Serif Display', serif;
+    font-family: var(--font-dm-serif), 'DM Serif Display', Georgia, serif;
   }
+
+  /* Item code style — monospace gold */
+  .item-code {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+    color: var(--gold);
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* Tonal card hover — desktop only */
+  @media (hover: hover) {
+    .card-interactive:hover {
+      box-shadow: 0 2px 8px rgba(26, 26, 22, 0.08);
+    }
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full shrink-0;
+  }
+  .status-dot--available { background: #22C55E; }
+  .status-dot--rented    { background: #F59E0B; }
+  .status-dot--overdue   { background: #DC2626; }
 }

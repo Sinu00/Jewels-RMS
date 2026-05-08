@@ -23,37 +23,44 @@ export default function LoginPage() {
     try {
       const { data } = await api.post('/auth/login', { email, password })
       setAuth(data.token, data.user)
-      router.replace('/')
+      router.replace('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.error ?? 'Login failed')
+      setError(err.response?.data?.error ?? 'Invalid email or password')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="font-display text-4xl text-gold">Jewels</h1>
-          <p className="mt-2 text-muted text-sm">Jewelry Rental Manager</p>
-        </div>
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Top accent line */}
+      <div className="h-0.5 bg-gold w-full" />
 
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <h2 className="font-semibold text-ink text-lg mb-5">Sign in</h2>
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-xs">
+
+          {/* Wordmark */}
+          <div className="mb-10 text-center">
+            <p className="font-display text-4xl text-gold">Jewels</p>
+            <p className="mt-1 text-sm text-muted">Rental Manager</p>
+          </div>
+
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="you@shop.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
+                autoFocus
               />
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -66,14 +73,28 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </div>
+
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading} size="lg">
-              {loading ? 'Signing in...' : 'Sign in'}
+
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="py-4 text-center">
+        <p className="text-xs text-muted">Staff access only</p>
       </div>
     </div>
   )

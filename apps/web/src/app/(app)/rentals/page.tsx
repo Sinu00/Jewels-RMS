@@ -6,8 +6,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, Plus, FileText } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
-import { formatINR, formatDate } from '@/lib/formatters'
+import { formatDate } from '@/lib/formatters'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Input } from '@/components/ui/input'
@@ -17,9 +18,9 @@ import type { RentalSummary, RentalStatus, PaginatedResponse } from '@rental/typ
 import { cn } from '@/lib/utils'
 
 const TABS: { key: RentalStatus | ''; label: string }[] = [
-  { key: '', label: 'All' },
-  { key: 'ACTIVE', label: 'Active' },
-  { key: 'OVERDUE', label: 'Overdue' },
+  { key: '',         label: 'All' },
+  { key: 'ACTIVE',   label: 'Active' },
+  { key: 'OVERDUE',  label: 'Overdue' },
   { key: 'EXTENDED', label: 'Extended' },
   { key: 'RETURNED', label: 'Returned' },
 ]
@@ -51,6 +52,7 @@ export default function RentalsPage() {
     <div>
       <PageHeader
         title="Rentals"
+        subtitle={data ? `${data.total} rental${data.total !== 1 ? 's' : ''}` : undefined}
         action={
           <Link href="/rentals/new">
             <Button size="sm"><Plus className="h-4 w-4" />New</Button>
@@ -58,29 +60,39 @@ export default function RentalsPage() {
         }
       />
 
-      {/* Tabs */}
-      <div className="px-4 md:px-6 flex gap-1 overflow-x-auto pb-2 mb-3">
-        {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setStatus(key)}
-            className={cn(
-              'shrink-0 px-3 py-1.5 rounded-full text-sm transition-colors',
-              status === key
-                ? 'bg-gold text-white font-medium'
-                : 'text-muted hover:bg-card'
-            )}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Status tabs */}
+      <div className="px-4 md:px-6 mb-3">
+        <div className="flex gap-1 border-b border-border">
+          {TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setStatus(key)}
+              className={cn(
+                'px-3 py-2 text-sm transition-colors relative shrink-0',
+                status === key
+                  ? 'text-ink font-medium'
+                  : 'text-muted hover:text-ink'
+              )}
+            >
+              {label}
+              {status === key && (
+                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-gold rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Search */}
       <div className="px-4 md:px-6 mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-          <Input placeholder="Search by customer or rental number..." className="pl-9" value={search} onChange={handleSearchChange} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+          <Input
+            placeholder="Search by customer name or rental number…"
+            className="pl-9"
+            value={search}
+            onChange={handleSearchChange}
+          />
         </div>
       </div>
 
@@ -90,35 +102,48 @@ export default function RentalsPage() {
         <EmptyState
           icon={FileText}
           title="No rentals found"
-          action={<Link href="/rentals/new"><Button size="sm"><Plus className="h-4 w-4" />New Rental</Button></Link>}
+          description={search ? 'Try a different search.' : undefined}
+          action={
+            !search ? (
+              <Link href="/rentals/new">
+                <Button size="sm"><Plus className="h-4 w-4" />New Rental</Button>
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
-        <div className="px-4 md:px-6 space-y-2">
-          {data?.data.map((rental) => (
-            <Link key={rental.id} href={`/rentals/${rental.id}`}>
-              <div className="bg-card border border-border rounded-xl p-4 hover:shadow-sm transition-shadow">
-                <div className="flex items-start justify-between gap-2">
+        <div className="px-4 md:px-6">
+          <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+            {data?.data.map((rental) => (
+              <Link key={rental.id} href={`/rentals/${rental.id}`}>
+                <div className="flex items-center gap-3 px-4 py-3 bg-card card-interactive">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs text-gold font-medium">{rental.rentalNumber}</span>
+                      <span className="item-code">{rental.rentalNumber}</span>
                       <StatusBadge status={rental.status} />
                       {rental.daysOverdue > 0 && (
-                        <span className="text-xs text-red-600 font-medium">{rental.daysOverdue}d overdue</span>
+                        <span className="text-xs font-medium text-red-600">
+                          {rental.daysOverdue}d overdue
+                        </span>
                       )}
                     </div>
-                    <p className="font-medium text-sm text-ink mt-0.5">{rental.customerName}</p>
+                    <p className="text-sm font-medium text-ink mt-0.5 truncate">
+                      {rental.customerName}
+                    </p>
                     <p className="text-xs text-muted">
                       {rental.itemsCount} item{rental.itemsCount !== 1 ? 's' : ''} · Due {formatDate(rental.dueDate)}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-display text-sm font-semibold">{formatINR(rental.totalRentalAmount)}</p>
-                    <p className="text-xs text-muted">+ {formatINR(rental.depositAmount)} dep.</p>
+                    <RupeeAmount amount={rental.totalRentalAmount} size="md" />
+                    <p className="text-xs text-muted mt-0.5">
+                      + <RupeeAmount amount={rental.depositAmount} size="sm" className="text-muted" /> dep.
+                    </p>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>

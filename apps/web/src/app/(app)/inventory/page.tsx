@@ -3,10 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Plus, SlidersHorizontal } from 'lucide-react'
+import { Search, Plus, Package } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
-import { useAuthStore } from '@/stores/authStore'
 import { OrnamentCard } from '@/components/shared/OrnamentCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -17,7 +16,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import type { Ornament, PaginatedResponse } from '@rental/types'
 
 export default function InventoryPage() {
-  const { isAdmin } = useAuthStore()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [available, setAvailable] = useState('')
@@ -36,7 +34,7 @@ export default function InventoryPage() {
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (category) params.set('category', category)
       if (available) params.set('available', available)
-      params.set('limit', '50')
+      params.set('limit', '60')
       return (await api.get(`/ornaments?${params}`)).data
     },
   })
@@ -51,7 +49,7 @@ export default function InventoryPage() {
     <div>
       <PageHeader
         title="Inventory"
-        subtitle={data ? `${data.total} ornaments` : undefined}
+        subtitle={data ? `${data.total} ornament${data.total !== 1 ? 's' : ''}` : undefined}
         action={
           <Link href="/inventory/add">
             <Button size="sm">
@@ -63,11 +61,11 @@ export default function InventoryPage() {
       />
 
       {/* Filters */}
-      <div className="px-4 md:px-6 flex gap-2 flex-wrap mb-4">
+      <div className="px-4 md:px-6 flex gap-2 flex-wrap mb-5">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
           <Input
-            placeholder="Search by name or code..."
+            placeholder="Name or item code…"
             className="pl-9"
             value={search}
             onChange={handleSearchChange}
@@ -75,13 +73,11 @@ export default function InventoryPage() {
         </div>
         <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-40">
           <option value="">All categories</option>
-          {categories?.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
+          {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
         </Select>
         <Select value={available} onChange={(e) => setAvailable(e.target.value)} className="w-36">
-          <option value="">All status</option>
-          <option value="true">Available</option>
+          <option value="">All</option>
+          <option value="true">Available only</option>
         </Select>
       </div>
 
@@ -90,13 +86,15 @@ export default function InventoryPage() {
         <LoadingSpinner />
       ) : data?.data.length === 0 ? (
         <EmptyState
-          icon={SlidersHorizontal}
+          icon={Package}
           title="No ornaments found"
-          description="Try adjusting your filters or add a new ornament."
+          description={search ? 'Try a different search.' : 'Add your first ornament to get started.'}
           action={
-            <Link href="/inventory/add">
-              <Button size="sm"><Plus className="h-4 w-4" />Add Ornament</Button>
-            </Link>
+            !search ? (
+              <Link href="/inventory/add">
+                <Button size="sm"><Plus className="h-4 w-4" />Add Ornament</Button>
+              </Link>
+            ) : undefined
           }
         />
       ) : (

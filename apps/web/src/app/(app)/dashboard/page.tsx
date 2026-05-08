@@ -2,38 +2,15 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Package, ClipboardList, Clock, TrendingUp, MessageCircle, Plus } from 'lucide-react'
+import { MessageCircle, Plus, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
 import { formatINR, formatDate, whatsappUrl, buildReminderMessage } from '@/lib/formatters'
 import { useAuthStore } from '@/stores/authStore'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import type { DashboardStats } from '@rental/types'
-
-function StatCard({ label, value, sub, icon: Icon, urgent }: {
-  label: string
-  value: string | number
-  sub?: string
-  icon: React.ElementType
-  urgent?: boolean
-}) {
-  return (
-    <Card className={urgent && Number(value) > 0 ? 'border-red-200 bg-red-50' : ''}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className={`rounded-xl p-2.5 ${urgent && Number(value) > 0 ? 'bg-red-100' : 'bg-gold/10'}`}>
-          <Icon className={`h-5 w-5 ${urgent && Number(value) > 0 ? 'text-red-600' : 'text-gold'}`} />
-        </div>
-        <div>
-          <p className="text-2xl font-display font-semibold text-ink">{value}</p>
-          <p className="text-xs text-muted leading-tight">{label}</p>
-          {sub && <p className="text-xs text-muted">{sub}</p>}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
@@ -45,14 +22,23 @@ export default function DashboardPage() {
 
   if (isLoading) return <LoadingSpinner />
 
+  const overdue = stats?.overdueRentals ?? 0
+  const active = stats?.totalActiveRentals ?? 0
+  const dueToday = stats?.dueTodayRentals ?? 0
+  const todayIncome = stats?.todayIncome ?? 0
+  const available = stats?.availableOrnaments ?? 0
+  const total = stats?.totalOrnaments ?? 0
+
   return (
-    <div className="px-4 py-6 md:px-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-2xl px-4 py-6 md:px-6">
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Dashboard</h1>
-          <p className="text-sm text-muted">{user?.outletName}</p>
+          <h1 className="text-lg font-semibold text-ink">{user?.outletName}</h1>
+          <p className="text-sm text-muted mt-0.5">Today's overview</p>
         </div>
-        <Link href="/rentals/new" className="hidden md:flex">
+        <Link href="/rentals/new" className="hidden md:block">
           <Button size="sm">
             <Plus className="h-4 w-4" />
             New Rental
@@ -60,21 +46,47 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 mb-6">
-        <StatCard icon={ClipboardList} label="Active Rentals" value={stats?.totalActiveRentals ?? 0} />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats?.overdueRentals ?? 0} urgent />
-        <StatCard icon={Clock} label="Due Today" value={stats?.dueTodayRentals ?? 0} />
-        <StatCard icon={TrendingUp} label="Today's Income" value={formatINR(stats?.todayIncome ?? 0)} />
-        <StatCard icon={Package} label="Available" value={`${stats?.availableOrnaments ?? 0}/${stats?.totalOrnaments ?? 0}`} sub="ornaments" />
+      {/* Stat strip — scan in 2 seconds */}
+      <div className="grid grid-cols-2 gap-px bg-border rounded-xl overflow-hidden border border-border mb-6">
+        <StatCell
+          label="Active rentals"
+          value={active}
+        />
+        <StatCell
+          label="Due today"
+          value={dueToday}
+          highlight={dueToday > 0}
+        />
+        <StatCell
+          label="Today's income"
+          value={<RupeeAmount amount={todayIncome} size="lg" />}
+        />
+        <StatCell
+          label="Available"
+          value={`${available} of ${total}`}
+          sub="ornaments"
+        />
       </div>
 
-      {/* Overdue list */}
-      {stats && stats.overdueList.length > 0 && (
-        <div>
-          <h2 className="font-semibold text-ink mb-3">Overdue Rentals</h2>
-          <div className="space-y-3">
-            {stats.overdueList.map((item) => {
+      {/* Overdue — the urgent section */}
+      {overdue > 0 && (
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="status-dot status-dot--overdue" />
+              <h2 className="text-sm font-semibold text-ink">
+                {overdue} overdue rental{overdue !== 1 ? 's' : ''}
+              </h2>
+            </div>
+            <Link href="/rentals?status=OVERDUE">
+              <span className="text-xs text-muted hover:text-gold flex items-center gap-1 transition-colors">
+                View all <ArrowRight className="h-3 w-3" />
+              </span>
+            </Link>
+          </div>
+
+          <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+            {stats?.overdueList.map((item) => {
               const reminderMsg = buildReminderMessage({
                 rentalNumber: item.rentalNumber,
                 customer: { name: item.customerName },
@@ -83,50 +95,84 @@ export default function DashboardPage() {
                 daysOverdue: item.daysOverdue,
               })
               return (
-                <Card key={item.rentalId} className="border-red-100">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/rentals/${item.rentalId}`} className="font-medium text-sm text-ink hover:text-gold">
-                            {item.rentalNumber}
-                          </Link>
-                          <span className="text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5 font-medium">
-                            {item.daysOverdue}d overdue
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted mt-0.5">{item.customerName}</p>
-                        <p className="text-xs text-muted mt-0.5 line-clamp-1">{item.itemNames.join(', ')}</p>
-                        <p className="text-xs text-muted">Due: {formatDate(item.dueDate)}</p>
-                      </div>
-                      <a
-                        href={whatsappUrl(item.customerPhone, reminderMsg)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0"
+                <div key={item.rentalId} className="flex items-center gap-3 px-4 py-3 bg-card card-interactive">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <Link
+                        href={`/rentals/${item.rentalId}`}
+                        className="item-code hover:underline"
                       >
-                        <Button variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-50">
-                          <MessageCircle className="h-3.5 w-3.5" />
-                        </Button>
-                      </a>
+                        {item.rentalNumber}
+                      </Link>
+                      <span className="text-xs font-medium text-red-600">
+                        {item.daysOverdue}d overdue
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-sm text-ink font-medium mt-0.5 truncate">{item.customerName}</p>
+                    <p className="text-xs text-muted truncate">{item.itemNames.join(' · ')}</p>
+                  </div>
+                  <a
+                    href={whatsappUrl(item.customerPhone, reminderMsg)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0"
+                    aria-label="Send WhatsApp reminder"
+                  >
+                    <button className="h-9 w-9 rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors">
+                      <MessageCircle className="h-4 w-4" />
+                    </button>
+                  </a>
+                </div>
               )
             })}
           </div>
+        </section>
+      )}
+
+      {/* Empty overdue — calm confirmation */}
+      {overdue === 0 && active > 0 && (
+        <div className="mb-6 flex items-center gap-2 text-sm text-muted">
+          <span className="status-dot status-dot--available" />
+          No overdue rentals
         </div>
       )}
 
       {/* Quick actions */}
-      <div className="mt-6 flex gap-3 flex-wrap">
+      <div className="flex gap-2 flex-wrap">
         <Link href="/rentals/new">
-          <Button><Plus className="h-4 w-4" />New Rental</Button>
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+            New Rental
+          </Button>
         </Link>
-        <Link href="/inventory">
-          <Button variant="outline"><Package className="h-4 w-4" />Search Ornament</Button>
+        <Link href="/inventory?available=true">
+          <Button variant="outline" size="sm">
+            Search Available Ornaments
+          </Button>
         </Link>
       </div>
+    </div>
+  )
+}
+
+function StatCell({
+  label,
+  value,
+  sub,
+  highlight,
+}: {
+  label: string
+  value: React.ReactNode
+  sub?: string
+  highlight?: boolean
+}) {
+  return (
+    <div className={`bg-card px-4 py-3 ${highlight ? 'bg-amber-50' : ''}`}>
+      <p className="text-xs text-muted mb-1">{label}</p>
+      <p className={`text-xl font-display font-semibold ${highlight ? 'text-amber-700' : 'text-ink'}`}>
+        {value}
+      </p>
+      {sub && <p className="text-xs text-muted mt-0.5">{sub}</p>}
     </div>
   )
 }
