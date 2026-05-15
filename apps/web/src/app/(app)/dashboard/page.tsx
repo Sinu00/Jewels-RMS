@@ -202,16 +202,16 @@ export default function DashboardPage() {
               </span>
             </Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-5 px-5 md:-mx-6 md:px-6">
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-5 px-5 pr-5 md:-mx-6 md:px-6 md:pr-6">
             {dueSoon.map((r: any) => {
               const isToday = r.dueDate.startsWith(todayStr)
               return (
                 <Link
                   key={r.id}
                   href={`/rentals/${r.id}`}
-                  className="shrink-0 snap-start w-48 bg-card border border-border rounded-2xl p-3.5 hover:border-ink transition-colors"
+                  className="shrink-0 snap-start w-44 bg-card border border-border rounded-2xl p-3.5 hover:border-ink transition-colors"
                 >
-                  <p className="text-xs font-mono text-muted mb-1">{r.rentalNumber}</p>
+                  <p className="text-xs font-mono text-muted mb-1 truncate">{r.rentalNumber}</p>
                   <p className="text-sm font-semibold text-ink truncate">{r.customerName}</p>
                   <p className="text-xs text-muted mt-1">{r.itemsCount} item{r.itemsCount !== 1 ? 's' : ''}</p>
                   <p className={`text-xs font-medium mt-2 ${isToday ? 'text-amber-600' : 'text-muted'}`}>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
               </span>
             </Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-5 px-5 md:-mx-6 md:px-6">
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-5 px-5 pr-5 md:-mx-6 md:px-6 md:pr-6">
             {availableOrnaments.map((o: any) => (
               <div key={o.id} className="shrink-0 snap-start w-36">
                 <OrnamentCard ornament={o} />

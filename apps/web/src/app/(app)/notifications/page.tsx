@@ -59,7 +59,7 @@ export default function NotificationsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink">Return due tomorrow</p>
-                    <p className="text-sm text-muted mt-0.5">{r.customerName}</p>
+                    <p className="text-sm text-muted mt-0.5 truncate">{r.customerName}</p>
                     <p className="text-xs text-muted mt-0.5 font-mono">{r.rentalNumber}</p>
                     <p className="text-xs text-muted mt-1">View rental →</p>
                   </div>

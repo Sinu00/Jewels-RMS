@@ -106,7 +106,7 @@ function OutletRow({ outlet }: { outlet: Outlet }) {
               <p className="text-xs text-muted mt-0.5">{outlet.userCount} user{outlet.userCount !== 1 ? 's' : ''}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0 ml-3">
-              <button onClick={() => setEditing(true)} className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-ink transition-colors">
+              <button onClick={() => setEditing(true)} className="h-9 w-9 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-ink transition-colors">
                 <Edit2 className="h-3.5 w-3.5" />
               </button>
               {confirmDelete ? (
@@ -119,11 +119,11 @@ function OutletRow({ outlet }: { outlet: Outlet }) {
                   </button>
                 </div>
               ) : (
-                <button onClick={() => setConfirmDelete(true)} className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-red-500 transition-colors">
+                <button onClick={() => setConfirmDelete(true)} className="h-9 w-9 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-red-500 transition-colors">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
-              <button onClick={() => setExpanded((e) => !e)} className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-ink transition-colors">
+              <button onClick={() => setExpanded((e) => !e)} className="h-9 w-9 rounded-lg bg-surface flex items-center justify-center text-muted hover:text-ink transition-colors">
                 {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </button>
             </div>
@@ -166,7 +166,7 @@ function OutletRow({ outlet }: { outlet: Outlet }) {
               {/* Add user */}
               {showAddUser ? (
                 <div className="px-4 py-3 space-y-2 border-t border-border bg-surface/50">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Input placeholder="Full name" value={userForm.name} onChange={(e) => setUserForm((f) => ({ ...f, name: e.target.value }))} />
                     <Select value={userForm.role} onChange={(e) => setUserForm((f) => ({ ...f, role: e.target.value }))}>
                       <option value="STAFF">Staff</option>
