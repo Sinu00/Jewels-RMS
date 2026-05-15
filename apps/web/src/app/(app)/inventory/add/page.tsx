@@ -15,11 +15,6 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/layout/PageHeader'
 
-const COMMON_CATEGORIES = [
-  'Necklace', 'Ring', 'Bangles', 'Earrings', 'Maang Tikka', 'Haar',
-  'Armlet', 'Anklet', 'Bracelet', 'Pendant', 'Brooch', 'Other',
-]
-
 export default function AddOrnamentPage() {
   const router = useRouter()
   const [form, setForm] = useState({
@@ -28,23 +23,26 @@ export default function AddOrnamentPage() {
   const [customCategory, setCustomCategory] = useState('')
   const [error, setError] = useState('')
 
-  const { data: existingCategories } = useQuery<string[]>({
-    queryKey: keys.ornamentCategories(),
-    queryFn: async () => (await api.get('/ornaments/categories')).data,
-  })
-
   const { data: masterCategories } = useQuery<string[]>({
     queryKey: keys.settingsCategories(),
     queryFn: async () => (await api.get('/settings/categories')).data,
   })
 
-  const allCategories = Array.from(new Set([...COMMON_CATEGORIES, ...(existingCategories ?? []), ...(masterCategories ?? [])])).sort()
+  const allCategories = (masterCategories ?? []).slice().sort()
+
+  type MutationVars = { name: string; category: string; baseRatePerDay: number; description?: string; isCustom: boolean }
 
   const mutation = useMutation({
-    mutationFn: async (body: object) => (await api.post('/ornaments', body)).data,
-    onSuccess: (data) => {
+    mutationFn: async ({ isCustom: _, ...body }: MutationVars) => (await api.post('/ornaments', body)).data,
+    onSuccess: async (data, { isCustom, category }) => {
+      if (isCustom) {
+        const current = masterCategories ?? []
+        if (!current.includes(category)) {
+          await api.patch('/settings/categories', { categories: [...current, category] })
+          queryClient.invalidateQueries({ queryKey: keys.settingsCategories() })
+        }
+      }
       queryClient.invalidateQueries({ queryKey: keys.ornaments() })
-      queryClient.invalidateQueries({ queryKey: keys.ornamentCategories() })
       router.push(`/inventory/${data.id}`)
     },
     onError: (err: any) => setError(err.response?.data?.error ?? 'Failed to add ornament'),
@@ -52,13 +50,14 @@ export default function AddOrnamentPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const finalCategory = form.category === '__custom__' ? customCategory : form.category
+    const finalCategory = form.category === '__custom__' ? customCategory.trim() : form.category
     if (!finalCategory) return setError('Category is required')
     mutation.mutate({
       name: form.name,
       category: finalCategory,
       baseRatePerDay: Number(form.baseRatePerDay),
       description: form.description || undefined,
+      isCustom: form.category === '__custom__',
     })
   }
 

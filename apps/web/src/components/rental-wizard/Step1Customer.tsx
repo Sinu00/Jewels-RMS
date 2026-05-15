@@ -58,10 +58,10 @@ export function Step1Customer() {
       />
 
       {/* Results */}
-      {data?.data.length === 0 && debouncedSearch && (
+      {data?.data.length === 0 && debouncedSearch && search && (
         <p className="text-sm text-muted text-center py-4">No customers found for "{debouncedSearch}"</p>
       )}
-      {data?.data && data.data.length > 0 && (
+      {data?.data && data.data.length > 0 && debouncedSearch && (
         <div className="space-y-2 max-h-56 overflow-y-auto">
           {data.data.map((c) => (
             <button

@@ -4,7 +4,8 @@
       "Bash(pnpm exec *)",
       "Bash(node *)",
       "Bash(pnpm tsc *)",
-      "Bash(npx prisma *)"
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
