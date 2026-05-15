@@ -176,20 +176,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Quick actions */}
-      <div className="flex gap-3 flex-wrap mb-10">
-        <Link href="/rentals/new">
-          <Button size="sm">
-            <Plus className="h-4 w-4" />
-            New Rental
-          </Button>
-        </Link>
-        <Link href="/inventory?available=true">
-          <Button variant="outline" size="sm">
-            Available Ornaments
-          </Button>
-        </Link>
-      </div>
 
       {/* Due for return carousel */}
       {dueSoon.length > 0 && (
