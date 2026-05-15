@@ -23,7 +23,7 @@ const COMMON_CATEGORIES = [
 export default function AddOrnamentPage() {
   const router = useRouter()
   const [form, setForm] = useState({
-    name: '', category: '', weightGrams: '', baseRatePerDay: '', valuationPrice: '', description: '',
+    name: '', category: '', baseRatePerDay: '', description: '',
   })
   const [customCategory, setCustomCategory] = useState('')
   const [error, setError] = useState('')
@@ -33,7 +33,12 @@ export default function AddOrnamentPage() {
     queryFn: async () => (await api.get('/ornaments/categories')).data,
   })
 
-  const allCategories = Array.from(new Set([...COMMON_CATEGORIES, ...(existingCategories ?? [])])).sort()
+  const { data: masterCategories } = useQuery<string[]>({
+    queryKey: keys.settingsCategories(),
+    queryFn: async () => (await api.get('/settings/categories')).data,
+  })
+
+  const allCategories = Array.from(new Set([...COMMON_CATEGORIES, ...(existingCategories ?? []), ...(masterCategories ?? [])])).sort()
 
   const mutation = useMutation({
     mutationFn: async (body: object) => (await api.post('/ornaments', body)).data,
@@ -52,9 +57,7 @@ export default function AddOrnamentPage() {
     mutation.mutate({
       name: form.name,
       category: finalCategory,
-      weightGrams: form.weightGrams ? Number(form.weightGrams) : undefined,
       baseRatePerDay: Number(form.baseRatePerDay),
-      valuationPrice: Number(form.valuationPrice),
       description: form.description || undefined,
     })
   }
@@ -97,20 +100,9 @@ export default function AddOrnamentPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Rate per Day (₹) *</Label>
-            <Input type="number" min="0" placeholder="e.g. 500" value={form.baseRatePerDay} onChange={(e) => set('baseRatePerDay', e.target.value)} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Valuation Price (₹) *</Label>
-            <Input type="number" min="0" placeholder="e.g. 50000" value={form.valuationPrice} onChange={(e) => set('valuationPrice', e.target.value)} required />
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <Label>Weight (grams)</Label>
-          <Input type="number" step="0.01" min="0" placeholder="e.g. 45.5" value={form.weightGrams} onChange={(e) => set('weightGrams', e.target.value)} />
+          <Label>Rate per Day (₹) *</Label>
+          <Input type="number" min="0" placeholder="e.g. 500" value={form.baseRatePerDay} onChange={(e) => set('baseRatePerDay', e.target.value)} required />
         </div>
 
         <div className="space-y-1.5">

@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { X, Users, ChevronRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
@@ -21,6 +23,9 @@ export default function SettingsPage() {
   const [addError, setAddError] = useState('')
   const [outletError, setOutletError] = useState('')
   const [outletSuccess, setOutletSuccess] = useState(false)
+  const [newCategory, setNewCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
+  const [catSaved, setCatSaved] = useState(false)
 
   const { data: outlet, isLoading: loadingOutlet } = useQuery({
     queryKey: keys.settings(),
@@ -34,11 +39,21 @@ export default function SettingsPage() {
     enabled: isAdmin(),
   })
 
+  const { data: masterCategories, isLoading: loadingCats } = useQuery<string[]>({
+    queryKey: keys.settingsCategories(),
+    queryFn: async () => (await api.get('/settings/categories')).data,
+    enabled: isAdmin(),
+  })
+
   useEffect(() => {
     if (outlet) {
       setOutletForm({ name: outlet.name ?? '', address: outlet.address ?? '', phone: outlet.phone ?? '' })
     }
   }, [outlet])
+
+  useEffect(() => {
+    if (masterCategories) setCategories(masterCategories)
+  }, [masterCategories])
 
   const outletMutation = useMutation({
     mutationFn: (body: object) => api.patch('/settings/outlet', body),
@@ -66,6 +81,27 @@ export default function SettingsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.staff() }),
   })
 
+  const saveCategoriesMutation = useMutation({
+    mutationFn: (cats: string[]) => api.patch('/settings/categories', { categories: cats }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.settingsCategories() })
+      queryClient.invalidateQueries({ queryKey: keys.ornamentCategories() })
+      setCatSaved(true)
+      setTimeout(() => setCatSaved(false), 3000)
+    },
+  })
+
+  function addCategory() {
+    const trimmed = newCategory.trim()
+    if (!trimmed || categories.includes(trimmed)) return
+    setCategories((prev) => [...prev, trimmed])
+    setNewCategory('')
+  }
+
+  function removeCategory(cat: string) {
+    setCategories((prev) => prev.filter((c) => c !== cat))
+  }
+
   if (!isAdmin()) {
     return <div className="p-6 text-muted">Admin access required.</div>
   }
@@ -75,6 +111,25 @@ export default function SettingsPage() {
       <PageHeader title="Settings" />
 
       <div className="px-4 md:px-6 max-w-lg space-y-8 pb-8">
+        {/* Master data links */}
+        <section>
+          <h2 className="font-semibold text-ink mb-3">Master Data</h2>
+          <Link href="/customers">
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3.5 hover:border-ink transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center">
+                  <Users className="h-4 w-4 text-muted" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-ink">Customer Master</p>
+                  <p className="text-xs text-muted">View and manage all customers</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted" />
+            </div>
+          </Link>
+        </section>
+
         {/* Outlet info */}
         <section>
           <h2 className="font-semibold text-ink mb-3">Outlet Information</h2>
@@ -96,6 +151,50 @@ export default function SettingsPage() {
               {outletSuccess && <p className="text-sm text-green-600">Saved successfully!</p>}
               <Button onClick={() => outletMutation.mutate(outletForm)} disabled={outletMutation.isPending}>
                 {outletMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
+        </section>
+
+        {/* Ornament Categories */}
+        <section>
+          <h2 className="font-semibold text-ink mb-1">Ornament Categories</h2>
+          <p className="text-xs text-muted mb-3">These categories appear in the add ornament form.</p>
+          {loadingCats ? <LoadingSpinner /> : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="inline-flex items-center gap-1 bg-surface border border-border text-ink text-xs px-3 py-1.5 rounded-full"
+                  >
+                    {cat}
+                    <button onClick={() => removeCategory(cat)} className="text-muted hover:text-red-500 ml-1 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {categories.length === 0 && <p className="text-xs text-muted">No categories yet.</p>}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add category..."
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={addCategory} disabled={!newCategory.trim()}>
+                  Add
+                </Button>
+              </div>
+              {catSaved && <p className="text-sm text-green-600">Categories saved!</p>}
+              <Button
+                onClick={() => saveCategoriesMutation.mutate(categories)}
+                disabled={saveCategoriesMutation.isPending}
+                size="sm"
+              >
+                {saveCategoriesMutation.isPending ? 'Saving...' : 'Save Categories'}
               </Button>
             </div>
           )}

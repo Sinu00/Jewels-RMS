@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Plus, FileText } from 'lucide-react'
+import { Plus, FileText } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
 import { formatDate } from '@/lib/formatters'
@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/shared/SearchInput'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type { RentalSummary, RentalStatus, PaginatedResponse } from '@rental/types'
@@ -60,40 +60,34 @@ export default function RentalsPage() {
         }
       />
 
-      {/* Status tabs */}
-      <div className="px-4 md:px-6 mb-3">
-        <div className="flex gap-1 border-b border-border">
+      {/* Status filter chips */}
+      <div className="px-5 md:px-6 mb-4">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {TABS.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setStatus(key)}
               className={cn(
-                'px-3 py-2 text-sm transition-colors relative shrink-0',
+                'shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all',
                 status === key
-                  ? 'text-ink font-medium'
-                  : 'text-muted hover:text-ink'
+                  ? 'bg-ink text-white shadow-sm'
+                  : 'bg-surface text-muted hover:text-ink border border-border'
               )}
             >
               {label}
-              {status === key && (
-                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-gold rounded-full" />
-              )}
             </button>
           ))}
         </div>
       </div>
 
       {/* Search */}
-      <div className="px-4 md:px-6 mb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-          <Input
-            placeholder="Search by customer name or rental number…"
-            className="pl-9"
-            value={search}
-            onChange={handleSearchChange}
-          />
-        </div>
+      <div className="px-5 md:px-6 mb-5">
+        <SearchInput
+          placeholder="Search by customer name or rental number…"
+          value={search}
+          onChange={handleSearchChange}
+          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+        />
       </div>
 
       {isLoading ? (
@@ -112,38 +106,31 @@ export default function RentalsPage() {
           }
         />
       ) : (
-        <div className="px-4 md:px-6">
-          <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
-            {data?.data.map((rental) => (
-              <Link key={rental.id} href={`/rentals/${rental.id}`}>
-                <div className="flex items-center gap-3 px-4 py-3 bg-card card-interactive">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="item-code">{rental.rentalNumber}</span>
-                      <StatusBadge status={rental.status} />
-                      {rental.daysOverdue > 0 && (
-                        <span className="text-xs font-medium text-red-600">
-                          {rental.daysOverdue}d overdue
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-ink mt-0.5 truncate">
-                      {rental.customerName}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {rental.itemsCount} item{rental.itemsCount !== 1 ? 's' : ''} · Due {formatDate(rental.dueDate)}
-                    </p>
+        <div className="px-5 md:px-6 space-y-2">
+          {data?.data.map((rental) => (
+            <Link key={rental.id} href={`/rentals/${rental.id}`}>
+              <div className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border card-interactive ${
+                rental.daysOverdue > 0
+                  ? 'bg-red-50 border-red-100'
+                  : 'bg-card border-border'
+              }`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="item-code">{rental.rentalNumber}</span>
+                    <StatusBadge status={rental.status} />
                   </div>
-                  <div className="text-right shrink-0">
-                    <RupeeAmount amount={rental.totalRentalAmount} size="md" />
-                    <p className="text-xs text-muted mt-0.5">
-                      + <RupeeAmount amount={rental.depositAmount} size="sm" className="text-muted" /> dep.
-                    </p>
-                  </div>
+                  <p className="text-sm font-semibold text-ink mt-1 truncate">{rental.customerName}</p>
+                  <p className={`text-xs mt-0.5 ${rental.daysOverdue > 0 ? 'text-red-500 font-medium' : 'text-muted'}`}>
+                    {rental.itemsCount} item{rental.itemsCount !== 1 ? 's' : ''}
+                    {rental.daysOverdue > 0
+                      ? ` · ${rental.daysOverdue}d overdue`
+                      : ` · Due ${formatDate(rental.dueDate)}`}
+                  </p>
                 </div>
-              </Link>
-            ))}
-          </div>
+                <RupeeAmount amount={rental.totalRentalAmount} size="md" className="shrink-0" />
+              </div>
+            </Link>
+          ))}
         </div>
       )}
     </div>

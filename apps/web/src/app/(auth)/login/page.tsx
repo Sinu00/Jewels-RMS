@@ -33,20 +33,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
-      {/* Top accent line */}
-      <div className="h-0.5 bg-gold w-full" />
-
-      <div className="flex-1 flex flex-col items-center justify-center px-4">
-        <div className="w-full max-w-xs">
+      <div className="flex-1 flex flex-col items-center justify-center px-5">
+        <div className="w-full max-w-sm">
 
           {/* Wordmark */}
           <div className="mb-10 text-center">
-            <p className="font-display text-4xl text-gold">Jewels</p>
-            <p className="mt-1 text-sm text-muted">Rental Manager</p>
+            <p className="font-display text-5xl text-ink tracking-tight">Jewels</p>
+            <p className="mt-2 text-sm text-muted">Rental Management</p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Card */}
+          <form onSubmit={handleSubmit} className="bg-card rounded-3xl border border-border p-6 shadow-card space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -75,25 +72,19 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+                <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="py-4 text-center">
+      <div className="py-5 text-center">
         <p className="text-xs text-muted">Staff access only</p>
       </div>
     </div>

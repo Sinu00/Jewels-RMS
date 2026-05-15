@@ -116,9 +116,9 @@ export function Step4Confirm() {
       </div>
 
       {/* Deposit highlight */}
-      <div className="flex items-center justify-between bg-gold/5 border border-gold/20 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between bg-surface border border-border rounded-xl px-4 py-3">
         <span className="text-sm font-medium">Collecting from customer today</span>
-        <RupeeAmount amount={total + depositAmount} size="lg" className="text-gold" />
+        <RupeeAmount amount={total + depositAmount} size="lg" className="text-ink" />
       </div>
 
       {/* Notes */}

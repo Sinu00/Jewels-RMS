@@ -9,15 +9,14 @@
     --gold:           #B8860B;
     --gold-light:     #D4A017;
     --gold-deep:      #8B6508;
-    --bg:             #FAFAF8;
-    --card:           #FFFDF7;
+    --bg:             #F8F8F6;
+    --card:           #FFFFFF;
     --ink:            #1A1A16;
-    --muted:          #6B6860;
-    --border:         #E8E4DC;
-    --radius-sm:      6px;
-    --radius-md:      8px;
-    --radius-lg:      12px;
-    --radius-xl:      16px;
+    --muted:          #888580;
+    --border:         #EDEBE5;
+    --surface:        #F2F1EE;
+    /* floating nav height used for scroll padding */
+    --nav-h:          80px;
   }
 
   * {
@@ -29,18 +28,15 @@
     font-feature-settings: "kern" 1, "liga" 1;
   }
 
-  /* Precise focus rings — gold, 2px offset */
   :focus-visible {
-    outline: 2px solid var(--gold);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 
-  /* Remove tap flash on mobile */
   button, a {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Scroll behaviour */
   html {
     scroll-behavior: smooth;
   }
@@ -51,22 +47,24 @@
     font-family: var(--font-dm-serif), 'DM Serif Display', Georgia, serif;
   }
 
-  /* Item code style — monospace gold */
   .item-code {
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
-    color: var(--gold);
+    color: var(--muted);
     font-size: 0.75rem;
     letter-spacing: 0.02em;
   }
 
-  /* Tonal card hover — desktop only */
   @media (hover: hover) {
     .card-interactive:hover {
-      box-shadow: 0 2px 8px rgba(26, 26, 22, 0.08);
+      box-shadow: 0 4px 16px rgba(26, 26, 22, 0.10);
+      transform: translateY(-1px);
     }
   }
 
-  /* Status dot */
+  .card-interactive {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
   .status-dot {
     @apply inline-block h-2 w-2 rounded-full shrink-0;
   }

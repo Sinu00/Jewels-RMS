@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
@@ -60,44 +59,34 @@ export default function ReturnPage() {
     <div>
       <PageHeader
         title="Process Return"
-        action={
-          <Link href={`/rentals/${id}`}>
-            <Button variant="ghost" size="sm"><ChevronLeft className="h-4 w-4" />Back</Button>
-          </Link>
-        }
+        subtitle={`${rental.rentalNumber} · ${rental.customer.name}`}
+        back={`/rentals/${id}`}
       />
 
-      <div className="px-4 md:px-6 max-w-sm space-y-5 pb-8">
+      <div className="px-5 md:px-6 max-w-sm space-y-5 pb-8">
 
-        {/* Rental summary */}
-        <div className="text-sm space-y-1">
-          <p className="item-code">{rental.rentalNumber}</p>
-          <p className="font-medium text-ink">{rental.customer.name}</p>
-          <p className="text-muted">
-            {rental.items.length} item{rental.items.length !== 1 ? 's' : ''} ·
-            Rented {formatDate(rental.startDate)}
-          </p>
-        </div>
-
-        {/* Items */}
-        <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
-          {rental.items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 bg-card">
-              <div className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-ink font-medium truncate">{item.ornament.name}</p>
-                <p className="item-code text-xs">{item.ornament.itemCode}</p>
+        {/* Items being returned */}
+        <div>
+          <p className="text-xs text-muted font-medium mb-2">Returning {rental.items.length} item{rental.items.length !== 1 ? 's' : ''}</p>
+          <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
+            {rental.items.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3 bg-card">
+                <div className="w-1.5 h-1.5 rounded-full bg-ink shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-ink font-medium truncate">{item.ornament.name}</p>
+                  <p className="item-code">{item.ornament.itemCode}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Deposit refund — the dominant element */}
-        <div className="rounded-2xl border-2 border-gold bg-gold/5 p-6 text-center">
+        <div className="rounded-2xl border-2 border-ink bg-surface p-6 text-center">
           <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
             Refund to customer
           </p>
-          <p className="font-display text-4xl text-gold leading-none">
+          <p className="font-display text-4xl text-ink leading-none">
             {inrFormat.format(rental.depositAmount)}
           </p>
           <p className="text-xs text-muted mt-2">

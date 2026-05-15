@@ -10,5 +10,6 @@ export const keys = {
   payments: (filters?: object) => ['payments', filters] as const,
   dashboard: () => ['dashboard'] as const,
   settings: () => ['settings'] as const,
+  settingsCategories: () => ['settings', 'categories'] as const,
   staff: () => ['staff'] as const,
 }

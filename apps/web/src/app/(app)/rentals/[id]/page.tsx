@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ChevronLeft, MessageCircle, Calendar, AlertTriangle } from 'lucide-react'
+import { MessageCircle, Calendar, AlertTriangle, Phone } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
@@ -55,122 +55,140 @@ export default function RentalDetailPage() {
     <div>
       <PageHeader
         title={rental.rentalNumber}
-        action={<Link href="/rentals"><Button variant="ghost" size="sm"><ChevronLeft className="h-4 w-4" />Back</Button></Link>}
+        back="/rentals"
+        action={rental.daysOverdue > 0 ? (
+          <span className="flex items-center gap-1.5 text-red-600 text-sm font-medium bg-red-50 border border-red-100 px-3 py-1.5 rounded-full">
+            <AlertTriangle className="h-3.5 w-3.5" />{rental.daysOverdue}d overdue
+          </span>
+        ) : undefined}
       />
 
-      <div className="px-4 md:px-6 max-w-2xl space-y-4 pb-8">
-        {/* Status bar */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <StatusBadge status={rental.status} />
-          {rental.daysOverdue > 0 && (
-            <span className="flex items-center gap-1 text-red-600 text-sm font-medium">
-              <AlertTriangle className="h-4 w-4" />{rental.daysOverdue} days overdue
-            </span>
-          )}
-        </div>
-
-        {/* Customer + dates */}
-        <div className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="text-muted text-xs">Customer</p>
-            <Link href={`/customers/${rental.customerId}`} className="font-medium hover:text-gold">{rental.customer.name}</Link>
-            <p className="text-muted text-xs">{rental.customer.phone}</p>
-          </div>
-          <div>
-            <p className="text-muted text-xs">Start / Due</p>
-            <p className="font-medium">{formatDate(rental.startDate)}</p>
-            <p className="font-medium">{formatDate(rental.dueDate)}</p>
-          </div>
-          {rental.returnedAt && (
+      <div className="px-5 md:px-6 max-w-2xl space-y-4 pb-32 md:pb-8">
+        {/* Status + customer row */}
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-muted text-xs">Returned</p>
-              <p className="font-medium">{formatDate(rental.returnedAt)}</p>
+              <StatusBadge status={rental.status} />
+              <Link href={`/customers/${rental.customerId}`} className="block mt-2 text-base font-semibold text-ink hover:text-muted transition-colors">
+                {rental.customer.name}
+              </Link>
+              <p className="text-sm text-muted mt-0.5">{rental.customer.phone}</p>
             </div>
-          )}
-          {rental.notes && (
-            <div className="col-span-2">
-              <p className="text-muted text-xs">Notes</p>
-              <p className="text-ink">{rental.notes}</p>
+            <a
+              href={`tel:${rental.customer.phone}`}
+              className="h-10 w-10 rounded-full bg-surface border border-border flex items-center justify-center shrink-0"
+            >
+              <Phone className="h-4 w-4 text-muted" />
+            </a>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted">Rented on</p>
+              <p className="font-medium mt-0.5">{formatDate(rental.startDate)}</p>
             </div>
-          )}
+            <div>
+              <p className="text-xs text-muted">Due date</p>
+              <p className={`font-medium mt-0.5 ${rental.daysOverdue > 0 ? 'text-red-600' : ''}`}>{formatDate(rental.dueDate)}</p>
+            </div>
+            {rental.returnedAt && (
+              <div>
+                <p className="text-xs text-muted">Returned</p>
+                <p className="font-medium mt-0.5">{formatDate(rental.returnedAt)}</p>
+              </div>
+            )}
+            {rental.notes && (
+              <div className="col-span-2">
+                <p className="text-xs text-muted">Notes</p>
+                <p className="text-ink mt-0.5">{rental.notes}</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Items */}
         <div>
-          <p className="text-sm font-semibold mb-2">Items</p>
+          <p className="text-sm font-semibold mb-3">Items ({rental.items.length})</p>
           <div className="space-y-2">
             {rental.items.map((item) => (
-              <div key={item.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between text-sm">
+              <div key={item.id} className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between text-sm">
                 <div>
                   <p className="font-medium">{item.ornament.name}</p>
-                  <p className="text-xs text-muted">{item.ornament.itemCode} · {formatINR(item.ratePerDay)}/day</p>
+                  <p className="text-xs text-muted mt-0.5">{item.ornament.itemCode} · {formatINR(item.ratePerDay)}/day</p>
                 </div>
-                <p className="font-display font-semibold">{formatINR(item.totalAmount)}</p>
+                <p className="font-display font-semibold text-base">{formatINR(item.totalAmount)}</p>
               </div>
             ))}
           </div>
-          <div className="flex justify-between items-center mt-2 px-3">
-            <span className="text-sm text-muted">Rental Total</span>
+          <div className="flex justify-between items-center mt-3 px-1">
+            <span className="text-sm text-muted">Rental total</span>
             <RupeeAmount amount={rental.totalRentalAmount} size="md" />
           </div>
         </div>
 
         {/* Deposit */}
-        <div className={`rounded-xl p-4 ${rental.status !== 'RETURNED' ? 'bg-gold/5 border border-gold/20' : 'bg-card border border-border'}`}>
+        <div className="rounded-2xl p-4 bg-card border border-border">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-semibold">Security Deposit</p>
-              <p className="text-xs text-muted">{rental.depositRefunded ? 'Refunded' : 'Held'}</p>
+              <p className="text-xs text-muted mt-0.5">{rental.depositRefunded ? 'Refunded to customer' : 'Currently held'}</p>
             </div>
-            <RupeeAmount amount={rental.depositAmount} size="lg" className={rental.depositRefunded ? 'text-muted line-through' : 'text-gold'} />
+            <RupeeAmount amount={rental.depositAmount} size="lg" className={rental.depositRefunded ? 'text-muted line-through' : 'text-ink'} />
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Secondary actions — always visible */}
         {canAct && (
-          <div className="flex gap-2 flex-wrap">
-            <Link href={`/rentals/${id}/return`}>
-              <Button>Process Return</Button>
-            </Link>
-            <Button variant="outline" onClick={() => setShowExtend(true)}>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowExtend(true)}>
               <Calendar className="h-4 w-4" />Extend
             </Button>
-            <WhatsAppButton phone={rental.customer.phone} message={billMsg} label="Send Bill" />
-            <WhatsAppButton phone={rental.customer.phone} message={reminderMsg} label="Reminder" />
+            <WhatsAppButton phone={rental.customer.phone} message={billMsg} label="Bill" />
+            <WhatsAppButton phone={rental.customer.phone} message={reminderMsg} label="Remind" />
           </div>
         )}
 
         {/* Extensions */}
         {rental.extensions.length > 0 && (
           <div>
-            <p className="text-sm font-semibold mb-2">Extensions</p>
-            {rental.extensions.map((ext) => (
-              <div key={ext.id} className="text-sm text-muted border-l-2 border-gold/30 pl-3 mb-2">
-                {formatDate(ext.previousDueDate)} → {formatDate(ext.newDueDate)}
-                {ext.reason && <span> · {ext.reason}</span>}
-              </div>
-            ))}
+            <p className="text-sm font-semibold mb-3">Extensions</p>
+            <div className="space-y-2">
+              {rental.extensions.map((ext) => (
+                <div key={ext.id} className="text-sm text-muted bg-card border border-border rounded-xl px-4 py-3 border-l-2 border-l-border">
+                  {formatDate(ext.previousDueDate)} → {formatDate(ext.newDueDate)}
+                  {ext.reason && <span className="text-muted"> · {ext.reason}</span>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Payments */}
         <div>
-          <p className="text-sm font-semibold mb-2">Payments</p>
+          <p className="text-sm font-semibold mb-3">Payments</p>
           <div className="space-y-2">
             {rental.payments.map((p) => (
-              <div key={p.id} className="flex justify-between items-center text-sm bg-card border border-border rounded-lg px-3 py-2">
+              <div key={p.id} className="flex justify-between items-center text-sm bg-card border border-border rounded-xl px-4 py-3">
                 <div>
                   <p className="font-medium capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</p>
-                  <p className="text-xs text-muted">{p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}</p>
+                  <p className="text-xs text-muted mt-0.5">{p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}</p>
                 </div>
                 <span className={`font-display font-semibold ${p.type === 'DEPOSIT_REFUND' ? 'text-red-600' : 'text-green-700'}`}>
-                  {p.type === 'DEPOSIT_REFUND' ? '-' : '+'}{formatINR(p.amount)}
+                  {p.type === 'DEPOSIT_REFUND' ? '−' : '+'}{formatINR(p.amount)}
                 </span>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Sticky Process Return CTA — mobile */}
+      {canAct && (
+        <div className="fixed bottom-[88px] inset-x-4 z-30 md:hidden">
+          <Link href={`/rentals/${id}/return`}>
+            <Button className="w-full" size="lg">Process Return</Button>
+          </Link>
+        </div>
+      )}
 
       {/* Extend dialog */}
       {showExtend && (

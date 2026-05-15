@@ -119,8 +119,8 @@ router.post('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
   const { name, category, weightGrams, baseRatePerDay, valuationPrice, description } = req.body
 
-  if (!name || !category || !baseRatePerDay || !valuationPrice) {
-    return res.status(400).json({ error: 'name, category, baseRatePerDay, valuationPrice required' })
+  if (!name || !category || !baseRatePerDay) {
+    return res.status(400).json({ error: 'name, category, baseRatePerDay required' })
   }
 
   const ornament = await prisma.$transaction(async (tx) => {
@@ -133,7 +133,7 @@ router.post('/', async (req: Request, res: Response) => {
         category,
         weightGrams: weightGrams ?? null,
         baseRatePerDay,
-        valuationPrice,
+        valuationPrice: valuationPrice ?? 0,
         description: description ?? null,
       },
       include: { images: true, rentalItems: { take: 0 } },

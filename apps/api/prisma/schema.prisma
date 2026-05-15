@@ -8,12 +8,13 @@ datasource db {
 }
 
 model Outlet {
-  id        String   @id @default(cuid())
-  name      String
-  address   String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String
+  address         String?
+  phone           String?
+  categoriesJson  String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   users     User[]
   ornaments Ornament[]

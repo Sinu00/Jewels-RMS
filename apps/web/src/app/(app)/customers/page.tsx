@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Search, Plus, Users } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { SearchInput } from '@/components/shared/SearchInput'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -55,11 +56,13 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="px-4 md:px-6 mb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-          <Input placeholder="Search by name or phone..." className="pl-9" value={search} onChange={handleSearchChange} />
-        </div>
+      <div className="px-5 md:px-6 mb-5">
+        <SearchInput
+          placeholder="Search by name or phone…"
+          value={search}
+          onChange={handleSearchChange}
+          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+        />
       </div>
 
       {isLoading ? (

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pnpm exec *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(pnpm tsc *)",
+      "Bash(npx prisma *)"
     ]
   }
 }

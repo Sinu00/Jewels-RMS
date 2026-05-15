@@ -15,24 +15,45 @@ const config: Config = {
           light: '#D4A017',
           dark: '#8B6508',
         },
-        bg: '#FAFAF8',
-        card: '#FFFDF7',
+        bg: '#F8F8F6',
+        card: '#FFFFFF',
         ink: '#1A1A16',
-        muted: '#6B6860',
-        border: '#E8E4DC',
+        muted: '#888580',
+        border: '#EDEBE5',
+        surface: '#F2F1EE',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'sans-serif'],
         display: ['var(--font-dm-serif)', 'serif'],
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        '3xl': '24px',
+        '2xl': '20px',
+        xl: '16px',
+        lg: '12px',
+        md: '8px',
+        sm: '6px',
+        full: '9999px',
+      },
+      boxShadow: {
+        card: '0 2px 12px rgba(26, 26, 22, 0.08)',
+        nav: '0 8px 32px rgba(26, 26, 22, 0.20)',
+        float: '0 4px 24px rgba(26, 26, 22, 0.14)',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    function ({ addUtilities }: any) {
+      addUtilities({
+        '.scrollbar-hide': {
+          '-ms-overflow-style': 'none',
+          'scrollbar-width': 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        },
+      })
+    },
+  ],
 }
 
 export default config

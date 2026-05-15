@@ -141,7 +141,7 @@ const rentalDetailInclude = {
 // GET /rentals
 router.get('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
-  const { status, search, page = '1', limit = '20' } = req.query as Record<string, string>
+  const { status, search, dueDate, page = '1', limit = '20' } = req.query as Record<string, string>
 
   await updateOverdueRentals(outletId)
 
@@ -151,6 +151,12 @@ router.get('/', async (req: Request, res: Response) => {
 
   const where: any = { outletId }
   if (status) where.status = status
+  if (dueDate) {
+    const d = new Date(dueDate)
+    const next = new Date(d)
+    next.setDate(next.getDate() + 1)
+    where.dueDate = { gte: d, lt: next }
+  }
   if (search) {
     where.OR = [
       { rentalNumber: { contains: search, mode: 'insensitive' } },

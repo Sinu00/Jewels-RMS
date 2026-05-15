@@ -99,7 +99,7 @@ export default function OrnamentDetailPage() {
         {/* Details */}
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-sm font-semibold text-gold">{ornament.itemCode}</span>
+            <span className="font-mono text-sm font-semibold text-muted">{ornament.itemCode}</span>
             <AvailabilityDot available={ornament.isAvailable} />
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

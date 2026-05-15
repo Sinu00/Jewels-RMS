@@ -99,4 +99,26 @@ router.patch('/staff/:id/password', async (req: Request, res: Response) => {
   res.json({ success: true })
 })
 
+// GET /settings/categories
+router.get('/categories', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const outlet = await prisma.outlet.findUnique({ where: { id: outletId }, select: { categoriesJson: true } })
+  if (!outlet) return res.status(404).json({ error: 'Outlet not found' })
+  try {
+    res.json(JSON.parse(outlet.categoriesJson))
+  } catch {
+    res.json([])
+  }
+})
+
+// PATCH /settings/categories
+router.patch('/categories', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const { categories } = req.body
+  if (!Array.isArray(categories)) return res.status(400).json({ error: 'categories must be an array' })
+  const cleaned = categories.filter((c: any) => typeof c === 'string' && c.trim()).map((c: string) => c.trim())
+  await prisma.outlet.update({ where: { id: outletId }, data: { categoriesJson: JSON.stringify(cleaned) } })
+  res.json(cleaned)
+})
+
 export default router

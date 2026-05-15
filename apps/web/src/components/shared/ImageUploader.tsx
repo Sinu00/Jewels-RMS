@@ -61,7 +61,7 @@ export function ImageUploader({ ornamentId, images, onImagesChange, maxImages = 
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
             className={cn(
-              'h-20 w-20 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted hover:border-gold hover:text-gold transition-colors',
+              'h-20 w-20 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted hover:border-ink hover:text-ink transition-colors',
               uploading && 'opacity-50'
             )}
           >

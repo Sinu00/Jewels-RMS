@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Plus, Package } from 'lucide-react'
+import { Plus, Package } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
 import { OrnamentCard } from '@/components/shared/OrnamentCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/shared/SearchInput'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -61,24 +61,23 @@ export default function InventoryPage() {
       />
 
       {/* Filters */}
-      <div className="px-4 md:px-6 flex gap-2 flex-wrap mb-5">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-          <Input
-            placeholder="Name or item code…"
-            className="pl-9"
-            value={search}
-            onChange={handleSearchChange}
-          />
+      <div className="px-5 md:px-6 flex flex-col gap-3 mb-6">
+        <SearchInput
+          placeholder="Search by name or item code…"
+          value={search}
+          onChange={handleSearchChange}
+          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+        />
+        <div className="flex gap-2">
+          <Select value={category} onChange={(e) => setCategory(e.target.value)} className="flex-1">
+            <option value="">All categories</option>
+            {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+          <Select value={available} onChange={(e) => setAvailable(e.target.value)} className="flex-1">
+            <option value="">All items</option>
+            <option value="true">Available only</option>
+          </Select>
         </div>
-        <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-40">
-          <option value="">All categories</option>
-          {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
-        </Select>
-        <Select value={available} onChange={(e) => setAvailable(e.target.value)} className="w-36">
-          <option value="">All</option>
-          <option value="true">Available only</option>
-        </Select>
       </div>
 
       {/* Grid */}
@@ -98,7 +97,7 @@ export default function InventoryPage() {
           }
         />
       ) : (
-        <div className="px-4 md:px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="px-5 md:px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {data?.data.map((ornament) => (
             <OrnamentCard key={ornament.id} ornament={ornament} />
           ))}

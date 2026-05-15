@@ -35,7 +35,7 @@ router.get('/', async (req: Request, res: Response) => {
       },
     }),
     prisma.payment.aggregate({
-      where: { outletId, createdAt: { gte: today } },
+      where: { outletId, type: 'RENTAL', createdAt: { gte: today } },
       _sum: { amount: true },
     }),
     Promise.all([

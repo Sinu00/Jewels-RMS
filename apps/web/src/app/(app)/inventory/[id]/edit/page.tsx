@@ -20,7 +20,7 @@ import type { Ornament, OrnamentImage } from '@rental/types'
 export default function EditOrnamentPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const [form, setForm] = useState({ name: '', weightGrams: '', baseRatePerDay: '', valuationPrice: '', description: '' })
+  const [form, setForm] = useState({ name: '', baseRatePerDay: '', description: '' })
   const [images, setImages] = useState<OrnamentImage[]>([])
   const [error, setError] = useState('')
 
@@ -33,9 +33,7 @@ export default function EditOrnamentPage() {
     if (ornament) {
       setForm({
         name: ornament.name,
-        weightGrams: ornament.weightGrams?.toString() ?? '',
         baseRatePerDay: ornament.baseRatePerDay.toString(),
-        valuationPrice: ornament.valuationPrice.toString(),
         description: ornament.description ?? '',
       })
       setImages(ornament.images)
@@ -56,9 +54,7 @@ export default function EditOrnamentPage() {
     e.preventDefault()
     mutation.mutate({
       name: form.name,
-      weightGrams: form.weightGrams ? Number(form.weightGrams) : null,
       baseRatePerDay: Number(form.baseRatePerDay),
-      valuationPrice: Number(form.valuationPrice),
       description: form.description || null,
     })
   }
@@ -87,20 +83,9 @@ export default function EditOrnamentPage() {
           <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Rate per Day (₹) *</Label>
-            <Input type="number" min="0" value={form.baseRatePerDay} onChange={(e) => setForm((f) => ({ ...f, baseRatePerDay: e.target.value }))} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Valuation (₹) *</Label>
-            <Input type="number" min="0" value={form.valuationPrice} onChange={(e) => setForm((f) => ({ ...f, valuationPrice: e.target.value }))} required />
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <Label>Weight (grams)</Label>
-          <Input type="number" step="0.01" min="0" value={form.weightGrams} onChange={(e) => setForm((f) => ({ ...f, weightGrams: e.target.value }))} />
+          <Label>Rate per Day (₹) *</Label>
+          <Input type="number" min="0" value={form.baseRatePerDay} onChange={(e) => setForm((f) => ({ ...f, baseRatePerDay: e.target.value }))} required />
         </div>
 
         <div className="space-y-1.5">
