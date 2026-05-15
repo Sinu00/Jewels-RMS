@@ -126,21 +126,16 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="px-5 md:px-6 mb-5 space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={method} onChange={(e) => setMethod(e.target.value)}>
-            <option value="">All methods</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="BANK_TRANSFER">Bank Transfer</option>
-          </Select>
-          <div />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="From date" />
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} placeholder="To date" />
-        </div>
+      {/* Filters — all 3 in one row */}
+      <div className="px-5 md:px-6 mb-5 flex gap-2">
+        <Select value={method} onChange={(e) => setMethod(e.target.value)} className="h-9 text-xs flex-1">
+          <option value="">All methods</option>
+          <option value="CASH">Cash</option>
+          <option value="UPI">UPI</option>
+          <option value="BANK_TRANSFER">Bank</option>
+        </Select>
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 text-xs flex-1 min-w-0" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 text-xs flex-1 min-w-0" />
       </div>
 
       {isLoading ? (
