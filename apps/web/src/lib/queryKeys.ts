@@ -12,4 +12,6 @@ export const keys = {
   settings: () => ['settings'] as const,
   settingsCategories: () => ['settings', 'categories'] as const,
   staff: () => ['staff'] as const,
+  outlets: () => ['outlets'] as const,
+  outletStaff: (id: string) => ['outlets', id, 'staff'] as const,
 }
