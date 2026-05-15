@@ -6,7 +6,7 @@ import { requireAdmin } from '../middleware/requireAdmin'
 
 const router = Router()
 router.use(requireAuth)
-router.use(requireAdmin as any)
+router.use(requireAdmin)
 
 // GET /settings/outlet
 router.get('/outlet', async (req: Request, res: Response) => {

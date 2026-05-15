@@ -44,7 +44,6 @@ export interface Ornament {
   category: string
   weightGrams: number | null
   baseRatePerDay: number
-  valuationPrice: number
   description: string | null
   isAvailable: boolean
   isDeleted: boolean
@@ -190,7 +189,6 @@ export interface CreateOrnamentDto {
   category: string
   weightGrams?: number
   baseRatePerDay: number
-  valuationPrice: number
   description?: string
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Search, ArrowLeft, RotateCcw } from 'lucide-react'
@@ -21,18 +22,11 @@ import { RupeeAmount } from '@/components/shared/RupeeAmount'
 export default function GenericReturnPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
   const [selectedRental, setSelectedRental] = useState<any>(null)
   const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
-
-  let debounceTimer: ReturnType<typeof setTimeout>
-  function handleSearchChange(val: string) {
-    setSearch(val)
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => setDebouncedSearch(val), 300)
-  }
 
   const { data: searchResults, isLoading: searching } = useQuery({
     queryKey: keys.rentals({ search: debouncedSearch, excludeReturned: true }),
@@ -66,7 +60,7 @@ export default function GenericReturnPage() {
 
   return (
     <div>
-      <PageHeader title="Process Return" />
+      <PageHeader title="Process Return" back="/dashboard" />
 
       <div className="px-5 md:px-6 max-w-lg pb-8">
         {!selectedRental ? (
@@ -79,7 +73,7 @@ export default function GenericReturnPage() {
                 className="pl-9"
                 placeholder="Search rentals..."
                 value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 autoFocus
               />
             </div>

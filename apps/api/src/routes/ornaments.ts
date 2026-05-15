@@ -27,7 +27,6 @@ function mapOrnament(o: any, activeItems: any[]) {
     category: o.category,
     weightGrams: o.weightGrams ? Number(o.weightGrams) : null,
     baseRatePerDay: Number(o.baseRatePerDay),
-    valuationPrice: Number(o.valuationPrice),
     description: o.description,
     isDeleted: o.isDeleted,
     isAvailable: activeItems.length === 0,
@@ -117,7 +116,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /ornaments
 router.post('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
-  const { name, category, weightGrams, baseRatePerDay, valuationPrice, description } = req.body
+  const { name, category, weightGrams, baseRatePerDay, description } = req.body
 
   if (!name || !category || !baseRatePerDay) {
     return res.status(400).json({ error: 'name, category, baseRatePerDay required' })
@@ -133,7 +132,6 @@ router.post('/', async (req: Request, res: Response) => {
         category,
         weightGrams: weightGrams ?? null,
         baseRatePerDay,
-        valuationPrice: valuationPrice ?? 0,
         description: description ?? null,
       },
       include: { images: true, rentalItems: { take: 0 } },
@@ -164,7 +162,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // PATCH /ornaments/:id
 router.patch('/:id', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
-  const { name, weightGrams, baseRatePerDay, valuationPrice, description } = req.body
+  const { name, weightGrams, baseRatePerDay, description } = req.body
 
   const existing = await prisma.ornament.findFirst({
     where: { id: req.params.id, outletId, isDeleted: false },
@@ -177,8 +175,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       ...(name !== undefined && { name }),
       ...(weightGrams !== undefined && { weightGrams }),
       ...(baseRatePerDay !== undefined && { baseRatePerDay }),
-      ...(valuationPrice !== undefined && { valuationPrice }),
-      ...(description !== undefined && { description }),
+...(description !== undefined && { description }),
     },
     include: {
       images: true,
@@ -193,7 +190,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 })
 
 // DELETE /ornaments/:id (soft delete, admin only)
-router.delete('/:id', requireAdmin as any, async (req: Request, res: Response) => {
+router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
   const existing = await prisma.ornament.findFirst({
     where: { id: req.params.id, outletId },

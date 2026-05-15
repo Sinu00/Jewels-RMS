@@ -14,13 +14,13 @@ import { OrnamentCard } from '@/components/shared/OrnamentCard'
 import type { DashboardStats } from '@rental/types'
 
 function getTodayStr() {
-  return formatDateInput(new Date().toISOString())
+  return formatDateInput(new Date())
 }
 
 function getTomorrowStr() {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return formatDateInput(d.toISOString())
+  return formatDateInput(d)
 }
 
 export default function DashboardPage() {

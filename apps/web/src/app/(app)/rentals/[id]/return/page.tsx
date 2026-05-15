@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
-import { formatDate } from '@/lib/formatters'
+import { formatDate, formatINR } from '@/lib/formatters'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -53,8 +53,6 @@ export default function ReturnPage() {
     )
   }
 
-  const inrFormat = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
-
   return (
     <div>
       <PageHeader
@@ -87,7 +85,7 @@ export default function ReturnPage() {
             Refund to customer
           </p>
           <p className="font-display text-4xl text-ink leading-none">
-            {inrFormat.format(rental.depositAmount)}
+            {formatINR(rental.depositAmount)}
           </p>
           <p className="text-xs text-muted mt-2">
             Security deposit · collected {formatDate(rental.startDate)}
@@ -127,7 +125,7 @@ export default function ReturnPage() {
         >
           {mutation.isPending
             ? 'Processing…'
-            : `Confirm return · Refund ${inrFormat.format(rental.depositAmount)}`}
+            : `Confirm return · Refund ${formatINR(rental.depositAmount)}`}
         </Button>
       </div>
     </div>

@@ -3,6 +3,8 @@ import { startOfDay } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { ACTIVE_STATUSES } from '../utils/availability'
+import { updateOverdueRentals } from '../utils/updateOverdueRentals'
+import { calculateDaysOverdue } from '../utils/rentalCalc'
 
 const router = Router()
 router.use(requireAuth)
@@ -11,11 +13,7 @@ router.get('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
   const today = startOfDay(new Date())
 
-  // Auto-update overdue
-  await prisma.rental.updateMany({
-    where: { outletId, status: 'ACTIVE', dueDate: { lt: today } },
-    data: { status: 'OVERDUE' },
-  })
+  await updateOverdueRentals(outletId)
 
   const [
     totalActive,
@@ -25,6 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
     ornamentStats,
     overdueRentals,
   ] = await Promise.all([
+    // excludes OVERDUE — counted separately as its own metric
     prisma.rental.count({ where: { outletId, status: { in: ['ACTIVE', 'EXTENDED'] } } }),
     prisma.rental.count({ where: { outletId, status: 'OVERDUE' } }),
     prisma.rental.count({
@@ -52,32 +51,22 @@ router.get('/', async (req: Request, res: Response) => {
       where: { outletId, status: 'OVERDUE' },
       include: {
         customer: { select: { name: true, phone: true } },
-        items: {
-          include: { ornament: { select: { name: true } } },
-        },
+        items: { include: { ornament: { select: { name: true } } } },
       },
       orderBy: { dueDate: 'asc' },
       take: 10,
     }),
   ])
 
-  const todayDue = startOfDay(new Date())
-  const overdueList = overdueRentals.map((r) => {
-    const due = startOfDay(new Date(r.dueDate))
-    const daysOverdue = Math.max(
-      0,
-      Math.floor((todayDue.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
-    )
-    return {
-      rentalId: r.id,
-      rentalNumber: r.rentalNumber,
-      customerName: r.customer.name,
-      customerPhone: r.customer.phone,
-      daysOverdue,
-      itemNames: r.items.map((i) => i.ornament.name),
-      dueDate: r.dueDate,
-    }
-  })
+  const overdueList = overdueRentals.map((r) => ({
+    rentalId: r.id,
+    rentalNumber: r.rentalNumber,
+    customerName: r.customer.name,
+    customerPhone: r.customer.phone,
+    daysOverdue: calculateDaysOverdue(r.dueDate, r.status),
+    itemNames: r.items.map((i) => i.ornament.name),
+    dueDate: r.dueDate,
+  }))
 
   res.json({
     totalActiveRentals: totalActive,

@@ -117,7 +117,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 })
 
 // DELETE /customers/:id (soft delete, admin only)
-router.delete('/:id', requireAdmin as any, async (req: Request, res: Response) => {
+router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
   const existing = await prisma.customer.findFirst({
     where: { id: req.params.id, outletId },

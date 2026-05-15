@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Package } from 'lucide-react'
@@ -19,11 +20,12 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [available, setAvailable] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
 
   const { data: categories } = useQuery<string[]>({
     queryKey: keys.ornamentCategories(),
     queryFn: async () => (await api.get('/ornaments/categories')).data,
+    staleTime: 5 * 60 * 1000,
   })
 
   const filters = { search: debouncedSearch, category, available }
@@ -38,12 +40,6 @@ export default function InventoryPage() {
       return (await api.get(`/ornaments?${params}`)).data
     },
   })
-
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
-    clearTimeout((window as any)._searchTimeout)
-    ;(window as any)._searchTimeout = setTimeout(() => setDebouncedSearch(e.target.value), 350)
-  }
 
   return (
     <div>
@@ -65,8 +61,8 @@ export default function InventoryPage() {
         <SearchInput
           placeholder="Search by name or item code…"
           value={search}
-          onChange={handleSearchChange}
-          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={search ? () => setSearch('') : undefined}
         />
         <div className="flex gap-2">
           <Select value={category} onChange={(e) => setCategory(e.target.value)} className="flex-1">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Plus, Users } from 'lucide-react'
@@ -18,7 +19,7 @@ import type { Customer, PaginatedResponse } from '@rental/types'
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', address: '' })
   const [addError, setAddError] = useState('')
@@ -38,17 +39,12 @@ export default function CustomersPage() {
     onError: (err: any) => setAddError(err.response?.data?.error ?? 'Failed'),
   })
 
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
-    clearTimeout((window as any)._custTimeout)
-    ;(window as any)._custTimeout = setTimeout(() => setDebouncedSearch(e.target.value), 300)
-  }
-
   return (
     <div>
       <PageHeader
         title="Customers"
         subtitle={data ? `${data.total} total` : undefined}
+        back="/dashboard"
         action={
           <Button size="sm" onClick={() => setShowAdd(true)}>
             <Plus className="h-4 w-4" />Add
@@ -60,8 +56,8 @@ export default function CustomersPage() {
         <SearchInput
           placeholder="Search by name or phone…"
           value={search}
-          onChange={handleSearchChange}
-          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={search ? () => setSearch('') : undefined}
         />
       </div>
 

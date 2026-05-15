@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useQuery } from '@tanstack/react-query'
 import { X, Check } from 'lucide-react'
 import Image from 'next/image'
@@ -16,7 +17,7 @@ import type { Ornament, PaginatedResponse } from '@rental/types'
 export function Step2Ornaments() {
   const { selectedItems, addItem, removeItem, setStep } = useRentalWizardStore()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
   const [category, setCategory] = useState('')
 
   const { data: categories } = useQuery<string[]>({
@@ -34,19 +35,9 @@ export function Step2Ornaments() {
     },
   })
 
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
-    clearTimeout((window as any)._s2Timeout)
-    ;(window as any)._s2Timeout = setTimeout(() => setDebouncedSearch(e.target.value), 300)
-  }
+  function clearSearch() { setSearch('') }
 
-  function clearSearch() {
-    setSearch('')
-    clearTimeout((window as any)._s2Timeout)
-    setDebouncedSearch('')
-  }
-
-  const selectedIds = new Set(selectedItems.map((i) => i.ornamentId))
+  const selectedIds = useMemo(() => new Set(selectedItems.map((i) => i.ornamentId)), [selectedItems])
 
   return (
     <div className="space-y-4">
@@ -81,7 +72,7 @@ export function Step2Ornaments() {
         <SearchInput
           placeholder="Search available ornaments…"
           value={search}
-          onChange={handleSearchChange}
+          onChange={(e) => setSearch(e.target.value)}
           onClear={search ? clearSearch : undefined}
         />
         {categories && categories.length > 0 && (

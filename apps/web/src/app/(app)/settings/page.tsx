@@ -27,22 +27,27 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [catSaved, setCatSaved] = useState(false)
 
+  const STATIC = 5 * 60 * 1000
+
   const { data: outlet, isLoading: loadingOutlet } = useQuery({
     queryKey: keys.settings(),
     queryFn: async () => (await api.get('/settings/outlet')).data,
     enabled: isAdmin(),
+    staleTime: STATIC,
   })
 
   const { data: staff, isLoading: loadingStaff } = useQuery({
     queryKey: keys.staff(),
     queryFn: async () => (await api.get('/settings/staff')).data,
     enabled: isAdmin(),
+    staleTime: STATIC,
   })
 
   const { data: masterCategories, isLoading: loadingCats } = useQuery<string[]>({
     queryKey: keys.settingsCategories(),
     queryFn: async () => (await api.get('/settings/categories')).data,
     enabled: isAdmin(),
+    staleTime: STATIC,
   })
 
   useEffect(() => {
@@ -108,7 +113,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings" back="/dashboard" />
 
       <div className="px-4 md:px-6 max-w-lg space-y-8 pb-8">
         {/* Master data links */}

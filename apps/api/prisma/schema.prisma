@@ -57,7 +57,6 @@ model Ornament {
   category       String
   weightGrams    Decimal? @db.Decimal(8, 2)
   baseRatePerDay Decimal  @db.Decimal(10, 2)
-  valuationPrice Decimal  @db.Decimal(12, 2)
   description    String?
   isDeleted      Boolean  @default(false)
   createdAt      DateTime @default(now())

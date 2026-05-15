@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, FileText } from 'lucide-react'
@@ -28,7 +29,7 @@ const TABS: { key: RentalStatus | ''; label: string }[] = [
 export default function RentalsPage() {
   const [status, setStatus] = useState<RentalStatus | ''>('')
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
 
   const filters = { status: status || undefined, search: debouncedSearch || undefined }
   const { data, isLoading } = useQuery<PaginatedResponse<RentalSummary>>({
@@ -41,12 +42,6 @@ export default function RentalsPage() {
       return (await api.get(`/rentals?${params}`)).data
     },
   })
-
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
-    clearTimeout((window as any)._searchTimeout2)
-    ;(window as any)._searchTimeout2 = setTimeout(() => setDebouncedSearch(e.target.value), 350)
-  }
 
   return (
     <div>
@@ -85,8 +80,8 @@ export default function RentalsPage() {
         <SearchInput
           placeholder="Search by customer name or rental number…"
           value={search}
-          onChange={handleSearchChange}
-          onClear={search ? () => { setSearch(''); setDebouncedSearch('') } : undefined}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={search ? () => setSearch('') : undefined}
         />
       </div>
 

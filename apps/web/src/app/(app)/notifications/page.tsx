@@ -5,14 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
-import { formatDate } from '@/lib/formatters'
+import { formatDate, formatDateInput } from '@/lib/formatters'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 
 function getTomorrow(): string {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return formatDateInput(d)
 }
 
 export default function NotificationsPage() {
@@ -36,7 +36,7 @@ export default function NotificationsPage() {
 
   return (
     <div>
-      <PageHeader title="Notifications" />
+      <PageHeader title="Notifications" back="/dashboard" />
 
       <div className="px-5 md:px-6 pb-8">
         {isLoading ? (

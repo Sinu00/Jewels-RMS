@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ChevronLeft, Edit, Trash2, ChevronLeft as Prev, ChevronRight as Next } from 'lucide-react'
+import { Edit, Trash2, ChevronLeft as Prev, ChevronRight as Next } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
@@ -48,18 +48,16 @@ export default function OrnamentDetailPage() {
     <div>
       <PageHeader
         title={ornament.name}
+        back="/inventory"
         action={
-          <div className="flex gap-2">
-            <Link href="/inventory"><Button variant="ghost" size="sm"><ChevronLeft className="h-4 w-4" />Back</Button></Link>
-            {isAdmin() && (
-              <>
-                <Link href={`/inventory/${id}/edit`}><Button variant="outline" size="sm"><Edit className="h-4 w-4" />Edit</Button></Link>
-                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
+          isAdmin() ? (
+            <div className="flex gap-2">
+              <Link href={`/inventory/${id}/edit`}><Button variant="outline" size="sm"><Edit className="h-4 w-4" />Edit</Button></Link>
+              <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -116,10 +114,6 @@ export default function OrnamentDetailPage() {
             <div>
               <p className="text-muted text-xs">Rate per Day</p>
               <p className="font-display font-semibold">{formatINR(ornament.baseRatePerDay)}</p>
-            </div>
-            <div>
-              <p className="text-muted text-xs">Valuation</p>
-              <p className="font-display font-semibold">{formatINR(ornament.valuationPrice)}</p>
             </div>
           </div>
           {ornament.description && (

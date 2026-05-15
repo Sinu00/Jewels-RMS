@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
@@ -26,6 +25,7 @@ export default function AddOrnamentPage() {
   const { data: masterCategories } = useQuery<string[]>({
     queryKey: keys.settingsCategories(),
     queryFn: async () => (await api.get('/settings/categories')).data,
+    staleTime: 5 * 60 * 1000,
   })
 
   const allCategories = (masterCategories ?? []).slice().sort()
@@ -43,6 +43,7 @@ export default function AddOrnamentPage() {
         }
       }
       queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
       router.push(`/inventory/${data.id}`)
     },
     onError: (err: any) => setError(err.response?.data?.error ?? 'Failed to add ornament'),
@@ -67,14 +68,7 @@ export default function AddOrnamentPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Add Ornament"
-        action={
-          <Link href="/inventory">
-            <Button variant="ghost" size="sm"><ChevronLeft className="h-4 w-4" />Back</Button>
-          </Link>
-        }
-      />
+      <PageHeader title="Add Ornament" back="/inventory" />
 
       <form onSubmit={handleSubmit} className="px-4 md:px-6 max-w-lg space-y-4 pb-8">
         <div className="space-y-1.5">

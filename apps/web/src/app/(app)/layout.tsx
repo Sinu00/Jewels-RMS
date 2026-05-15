@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/authStore'
 import { AppShell } from '@/components/layout/AppShell'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { token } = useAuthStore()
@@ -17,5 +18,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!token) return null
 
-  return <AppShell>{children}</AppShell>
+  return <ErrorBoundary><AppShell>{children}</AppShell></ErrorBoundary>
 }

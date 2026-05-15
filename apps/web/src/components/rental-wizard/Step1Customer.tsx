@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { UserPlus, Check } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -16,20 +17,13 @@ import type { Customer, PaginatedResponse } from '@rental/types'
 export function Step1Customer() {
   const { customer, setCustomer, setStep, isNewCustomer, setIsNewCustomer, newCustomerData, setNewCustomerData } = useRentalWizardStore()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
 
   const { data } = useQuery<PaginatedResponse<Customer>>({
     queryKey: keys.customers({ search: debouncedSearch }),
     queryFn: async () => (await api.get(`/customers?search=${debouncedSearch}&limit=10`)).data,
     enabled: debouncedSearch.length > 0,
   })
-
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value
-    setSearch(v)
-    clearTimeout((window as any)._s1Timeout)
-    ;(window as any)._s1Timeout = setTimeout(() => setDebouncedSearch(v), 300)
-  }
 
   function selectCustomer(c: Customer) {
     setCustomer(c)
@@ -43,8 +37,6 @@ export function Step1Customer() {
 
   function clearSearch() {
     setSearch('')
-    clearTimeout((window as any)._s1Timeout)
-    setDebouncedSearch('')
   }
 
   return (
@@ -53,7 +45,7 @@ export function Step1Customer() {
       <SearchInput
         placeholder="Search by name or phone…"
         value={search}
-        onChange={handleSearchChange}
+        onChange={(e) => setSearch(e.target.value)}
         onClear={search ? clearSearch : undefined}
       />
 

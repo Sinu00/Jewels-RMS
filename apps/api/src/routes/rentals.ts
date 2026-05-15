@@ -1,40 +1,20 @@
 import { Router, Request, Response } from 'express'
-import { startOfDay } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { generateRentalNumber } from '../utils/rentalNumber'
 import { ACTIVE_STATUSES } from '../utils/availability'
+import { updateOverdueRentals } from '../utils/updateOverdueRentals'
+import { calculateRentalDays, calculateDaysOverdue } from '../utils/rentalCalc'
 
 const router = Router()
 router.use(requireAuth)
 
-async function updateOverdueRentals(outletId: string) {
-  await prisma.rental.updateMany({
-    where: {
-      outletId,
-      status: 'ACTIVE',
-      dueDate: { lt: startOfDay(new Date()) },
-    },
-    data: { status: 'OVERDUE' },
-  })
-}
-
 function mapRentalSummary(r: any): object {
-  const totalRentalAmount = r.items.reduce((sum: number, item: any) => {
-    const days = Math.max(
-      1,
-      Math.ceil(
-        (new Date(r.dueDate).getTime() - new Date(r.startDate).getTime()) / (1000 * 60 * 60 * 24)
-      )
-    )
-    return sum + Number(item.ratePerDay) * days
-  }, 0)
-
-  const today = startOfDay(new Date())
-  const due = startOfDay(new Date(r.dueDate))
-  const daysOverdue =
-    r.status !== 'RETURNED' ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))) : 0
-
+  const days = calculateRentalDays(r.startDate, r.dueDate)
+  const totalRentalAmount = r.items.reduce(
+    (sum: number, item: any) => sum + Number(item.ratePerDay) * days,
+    0
+  )
   return {
     id: r.id,
     rentalNumber: r.rentalNumber,
@@ -46,22 +26,13 @@ function mapRentalSummary(r: any): object {
     itemsCount: r.items.length,
     depositAmount: Number(r.depositAmount),
     totalRentalAmount,
-    daysOverdue,
+    daysOverdue: calculateDaysOverdue(r.dueDate, r.status),
     createdAt: r.createdAt,
   }
 }
 
 function mapRentalDetail(r: any): object {
-  const today = startOfDay(new Date())
-  const due = startOfDay(new Date(r.dueDate))
-  const daysOverdue =
-    r.status !== 'RETURNED' ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))) : 0
-
-  const days = Math.max(
-    1,
-    Math.ceil((new Date(r.dueDate).getTime() - new Date(r.startDate).getTime()) / (1000 * 60 * 60 * 24))
-  )
-
+  const days = calculateRentalDays(r.startDate, r.dueDate)
   const items = r.items.map((item: any) => ({
     id: item.id,
     ornamentId: item.ornamentId,
@@ -80,8 +51,6 @@ function mapRentalDetail(r: any): object {
     totalAmount: Number(item.ratePerDay) * days,
   }))
 
-  const totalRentalAmount = items.reduce((s: number, i: any) => s + i.totalAmount, 0)
-
   return {
     id: r.id,
     rentalNumber: r.rentalNumber,
@@ -96,7 +65,7 @@ function mapRentalDetail(r: any): object {
     depositRefunded: r.depositRefunded,
     notes: r.notes,
     items,
-    totalRentalAmount,
+    totalRentalAmount: items.reduce((s: number, i: any) => s + i.totalAmount, 0),
     extensions: r.extensions.map((e: any) => ({
       id: e.id,
       rentalId: e.rentalId,
@@ -116,7 +85,7 @@ function mapRentalDetail(r: any): object {
       createdAt: p.createdAt,
       recordedBy: { id: p.recordedBy.id, name: p.recordedBy.name },
     })),
-    daysOverdue,
+    daysOverdue: calculateDaysOverdue(r.dueDate, r.status),
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   }
@@ -195,13 +164,11 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  // Verify customer belongs to outlet
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, outletId, isDeleted: false },
   })
   if (!customer) return res.status(400).json({ error: 'Customer not found' })
 
-  // Verify all ornaments are available
   const ornamentIds: string[] = items.map((i: any) => i.ornamentId)
   const activeConflicts = await prisma.rentalItem.findMany({
     where: {
@@ -211,10 +178,20 @@ router.post('/', async (req: Request, res: Response) => {
     select: { ornamentId: true },
   })
   if (activeConflicts.length > 0) {
-    return res.status(400).json({ error: 'One or more ornaments are currently rented out', conflicts: activeConflicts.map((c) => c.ornamentId) })
+    return res.status(400).json({
+      error: 'One or more ornaments are currently rented out',
+      conflicts: activeConflicts.map((c) => c.ornamentId),
+    })
   }
 
-  const rental = await prisma.$transaction(async (tx) => {
+  const rentalDays = calculateRentalDays(startDate, dueDate)
+  const totalRentalAmount = items.reduce(
+    (sum: number, item: any) => sum + Number(item.ratePerDay) * rentalDays,
+    0
+  )
+
+  // Create rental + payments in one transaction, fetch full record at end (no post-transaction re-fetch)
+  const fullRental = await prisma.$transaction(async (tx) => {
     const rentalNumber = await generateRentalNumber(outletId, tx)
     const newRental = await tx.rental.create({
       data: {
@@ -232,30 +209,16 @@ router.post('/', async (req: Request, res: Response) => {
           })),
         },
       },
-      include: {
-        ...rentalDetailInclude,
-      },
     })
 
-    // Record deposit payment
     await tx.payment.create({
-      data: {
-        outletId,
-        rentalId: newRental.id,
-        recordedById: userId,
-        type: 'DEPOSIT',
-        method: depositMethod,
-        amount: depositAmount,
-      },
+      data: { outletId, rentalId: newRental.id, recordedById: userId, type: 'RENTAL', method: depositMethod, amount: totalRentalAmount },
+    })
+    await tx.payment.create({
+      data: { outletId, rentalId: newRental.id, recordedById: userId, type: 'DEPOSIT', method: depositMethod, amount: depositAmount },
     })
 
-    return newRental
-  })
-
-  // Fetch full rental with payments
-  const fullRental = await prisma.rental.findUnique({
-    where: { id: rental.id },
-    include: rentalDetailInclude,
+    return tx.rental.findUnique({ where: { id: newRental.id }, include: rentalDetailInclude })
   })
 
   res.status(201).json(mapRentalDetail(fullRental))
@@ -279,37 +242,24 @@ router.post('/:id/return', async (req: Request, res: Response) => {
 
   if (!method) return res.status(400).json({ error: 'method required' })
 
-  const rental = await prisma.rental.findFirst({
-    where: { id: req.params.id, outletId },
-  })
+  const rental = await prisma.rental.findFirst({ where: { id: req.params.id, outletId } })
   if (!rental) return res.status(404).json({ error: 'Not found' })
-  if (rental.status === 'RETURNED') {
-    return res.status(400).json({ error: 'Rental already returned' })
-  }
+  if (rental.status === 'RETURNED') return res.status(400).json({ error: 'Rental already returned' })
 
   await prisma.$transaction(async (tx) => {
     await tx.rental.update({
       where: { id: req.params.id },
       data: { status: 'RETURNED', returnedAt: new Date(), depositRefunded: true },
     })
-    // Deposit refund — amount taken from stored depositAmount, no recalculation
     await tx.payment.create({
       data: {
-        outletId,
-        rentalId: req.params.id,
-        recordedById: userId,
-        type: 'DEPOSIT_REFUND',
-        method,
-        amount: rental.depositAmount,
-        note: note ?? null,
+        outletId, rentalId: req.params.id, recordedById: userId,
+        type: 'DEPOSIT_REFUND', method, amount: rental.depositAmount, note: note ?? null,
       },
     })
   })
 
-  const updated = await prisma.rental.findUnique({
-    where: { id: req.params.id },
-    include: rentalDetailInclude,
-  })
+  const updated = await prisma.rental.findUnique({ where: { id: req.params.id }, include: rentalDetailInclude })
   res.json(mapRentalDetail(updated))
 })
 
@@ -320,22 +270,13 @@ router.post('/:id/extend', async (req: Request, res: Response) => {
 
   if (!newDueDate) return res.status(400).json({ error: 'newDueDate required' })
 
-  const rental = await prisma.rental.findFirst({
-    where: { id: req.params.id, outletId },
-  })
+  const rental = await prisma.rental.findFirst({ where: { id: req.params.id, outletId } })
   if (!rental) return res.status(404).json({ error: 'Not found' })
-  if (rental.status === 'RETURNED') {
-    return res.status(400).json({ error: 'Cannot extend a returned rental' })
-  }
+  if (rental.status === 'RETURNED') return res.status(400).json({ error: 'Cannot extend a returned rental' })
 
   await prisma.$transaction(async (tx) => {
     await tx.rentalExtension.create({
-      data: {
-        rentalId: req.params.id,
-        previousDueDate: rental.dueDate,
-        newDueDate: new Date(newDueDate),
-        reason: reason ?? null,
-      },
+      data: { rentalId: req.params.id, previousDueDate: rental.dueDate, newDueDate: new Date(newDueDate), reason: reason ?? null },
     })
     await tx.rental.update({
       where: { id: req.params.id },
@@ -343,10 +284,7 @@ router.post('/:id/extend', async (req: Request, res: Response) => {
     })
   })
 
-  const updated = await prisma.rental.findUnique({
-    where: { id: req.params.id },
-    include: rentalDetailInclude,
-  })
+  const updated = await prisma.rental.findUnique({ where: { id: req.params.id }, include: rentalDetailInclude })
   res.json(mapRentalDetail(updated))
 })
 
