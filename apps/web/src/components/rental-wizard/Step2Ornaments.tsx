@@ -15,7 +15,7 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import type { Ornament, PaginatedResponse } from '@rental/types'
 
 export function Step2Ornaments() {
-  const { selectedItems, addItem, removeItem, setStep } = useRentalWizardStore()
+  const { selectedItems, addItem, removeItem, setStep, startDate, dueDate } = useRentalWizardStore()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
   const [category, setCategory] = useState('')
@@ -26,13 +26,19 @@ export function Step2Ornaments() {
   })
 
   const { data, isLoading } = useQuery<PaginatedResponse<Ornament>>({
-    queryKey: keys.ornaments({ search: debouncedSearch, category, available: 'true' }),
+    queryKey: keys.ornaments({ search: debouncedSearch, category, available: 'true', startDate, dueDate }),
     queryFn: async () => {
-      const params = new URLSearchParams({ available: 'true', limit: '40' })
+      const params = new URLSearchParams({
+        available: 'true',
+        startDate,
+        dueDate,
+        limit: '40',
+      })
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (category) params.set('category', category)
       return (await api.get(`/ornaments?${params}`)).data
     },
+    enabled: !!startDate && !!dueDate,
   })
 
   function clearSearch() { setSearch('') }
@@ -141,7 +147,7 @@ export function Step2Ornaments() {
       <div className="flex gap-3 pt-1">
         <Button variant="outline" onClick={() => setStep(1)} size="lg">Back</Button>
         <Button onClick={() => setStep(3)} disabled={selectedItems.length === 0} size="lg" className="flex-1">
-          Continue to Dates
+          Continue to customer
         </Button>
       </div>
     </div>

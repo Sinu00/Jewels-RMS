@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Receipt } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
 import { formatINR, formatDate } from '@/lib/formatters'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+import { SkeletonList } from '@/components/shared/Skeleton'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,18 +19,19 @@ import { PageHeader } from '@/components/layout/PageHeader'
 type Tab = 'income' | 'deposits'
 
 export default function AccountsPage() {
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('income')
   const [method, setMethod] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  const [from, setFrom] = useState(() => searchParams.get('from') ?? '')
+  const [to, setTo] = useState(() => searchParams.get('to') ?? '')
 
-  const incomeFilters = { type: 'RENTAL', method: method || undefined, from: from || undefined, to: to || undefined }
+  const incomeFilters = { incomeOnly: true, method: method || undefined, from: from || undefined, to: to || undefined }
   const depositFilters = { method: method || undefined, from: from || undefined, to: to || undefined }
 
   const { data: incomeData, isLoading: incomeLoading } = useQuery({
     queryKey: keys.payments(incomeFilters),
     queryFn: async () => {
-      const params = new URLSearchParams({ type: 'RENTAL', limit: '100' })
+      const params = new URLSearchParams({ incomeOnly: 'true', limit: '100' })
       if (method) params.set('method', method)
       if (from) params.set('from', from)
       if (to) params.set('to', to)
@@ -97,7 +100,13 @@ export default function AccountsPage() {
       {tab === 'income' ? (
         <div className="px-5 md:px-6 grid grid-cols-3 gap-3 mb-5">
           {[
-            { label: 'Today', value: incomeSummary?.todayByType?.RENTAL ?? 0 },
+            {
+              label: 'Today',
+              value:
+                (incomeSummary?.todayByType?.RENTAL ?? 0) +
+                (incomeSummary?.todayByType?.RENTAL_ADVANCE ?? 0) +
+                (incomeSummary?.todayByType?.RENTAL_BALANCE ?? 0),
+            },
             { label: 'This Week', value: incomeWeekTotal },
             { label: 'This Month', value: incomeMonthTotal },
           ].map(({ label, value }) => (
@@ -139,18 +148,18 @@ export default function AccountsPage() {
       </div>
 
       {isLoading ? (
-        <LoadingSpinner />
+        <SkeletonList rows={6} />
       ) : tab === 'income' ? (
         <div className="px-5 md:px-6 space-y-2">
           {incomePayments.length === 0 && (
-            <p className="text-sm text-muted text-center py-8">No income records found</p>
+            <EmptyState icon={Receipt} title="No income records found" description="Try adjusting the filters above." />
           )}
           {incomePayments.map((p: any) => (
             <div key={p.id} className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center justify-between text-sm">
               <div>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-                  <span className="font-semibold">Rental Income</span>
+                  <span className="font-semibold capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</span>
                 </div>
                 <p className="text-xs text-muted mt-1">
                   {p.method.replace(/_/g, ' ')} · {p.recordedBy.name}
@@ -169,7 +178,7 @@ export default function AccountsPage() {
       ) : (
         <div className="px-5 md:px-6 space-y-2">
           {allDepositPayments.length === 0 && (
-            <p className="text-sm text-muted text-center py-8">No deposit records found</p>
+            <EmptyState icon={Receipt} title="No deposit records found" description="Try adjusting the filters above." />
           )}
           {allDepositPayments.map((p: any) => {
             const isRefund = p.type === 'DEPOSIT_REFUND'

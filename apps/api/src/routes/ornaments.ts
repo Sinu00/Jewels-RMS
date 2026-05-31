@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express'
 import path from 'path'
 import fs from 'fs'
+import { startOfDay } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { requireAdmin } from '../middleware/requireAdmin'
 import { uploadImages } from '../middleware/upload'
 import { generateItemCode } from '../utils/itemCode'
-import { ACTIVE_STATUSES } from '../utils/availability'
+import { BLOCKING_STATUSES, rentalDateOverlapFilter } from '../utils/availability'
 
 const router = Router()
 router.use(requireAuth)
@@ -30,6 +31,7 @@ function mapOrnament(o: any, activeItems: any[]) {
     description: o.description,
     isDeleted: o.isDeleted,
     isAvailable: activeItems.length === 0,
+    futureBookingsCount: 0,
     images: (o.images ?? [])
       .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
       .map((img: any) => ({
@@ -67,7 +69,8 @@ router.get('/categories', async (req: Request, res: Response) => {
 // GET /ornaments
 router.get('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
-  const { search, category, available, page = '1', limit = '20' } = req.query as Record<string, string>
+  const { search, category, available, startDate, dueDate, page = '1', limit = '20' } =
+    req.query as Record<string, string>
 
   const pageNum = Math.max(1, parseInt(page))
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)))
@@ -81,9 +84,15 @@ router.get('/', async (req: Request, res: Response) => {
     ]
   }
   if (category) where.category = category
-  if (available === 'true') {
+  if (available === 'true' && startDate && dueDate) {
+    const rangeStart = new Date(startDate)
+    const rangeEnd = new Date(dueDate)
     where.rentalItems = {
-      none: { rental: { status: { in: [...ACTIVE_STATUSES] } } },
+      none: { rental: rentalDateOverlapFilter(rangeStart, rangeEnd) },
+    }
+  } else if (available === 'true') {
+    where.rentalItems = {
+      none: { rental: { status: { in: [...BLOCKING_STATUSES] } } },
     }
   }
 
@@ -93,7 +102,7 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         images: true,
         rentalItems: {
-          where: { rental: { status: { in: [...ACTIVE_STATUSES] } } },
+          where: { rental: { status: { in: [...BLOCKING_STATUSES] } } },
           include: { rental: { include: { customer: { select: { name: true } } } } },
           take: 1,
         },
@@ -105,8 +114,31 @@ router.get('/', async (req: Request, res: Response) => {
     prisma.ornament.count({ where }),
   ])
 
+  const today = startOfDay(new Date())
+  const ornamentIds = ornaments.map((o) => o.id)
+  const futureCounts = ornamentIds.length
+    ? await prisma.rentalItem.groupBy({
+        by: ['ornamentId'],
+        where: {
+          ornamentId: { in: ornamentIds },
+          rental: { status: 'BOOKED', startDate: { gte: today } },
+        },
+        _count: { rentalId: true },
+      })
+    : []
+
+  const futureCountByOrnamentId = new Map<string, number>(
+    futureCounts.map((row) => [row.ornamentId, row._count.rentalId])
+  )
+
   res.json({
-    data: ornaments.map((o) => mapOrnament(o, o.rentalItems)),
+    data: ornaments.map((o) => {
+      const mapped = mapOrnament(o, o.rentalItems)
+      return {
+        ...mapped,
+        futureBookingsCount: futureCountByOrnamentId.get(o.id) ?? 0,
+      }
+    }),
     total,
     page: pageNum,
     totalPages: Math.ceil(total / limitNum),
@@ -149,7 +181,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     include: {
       images: true,
       rentalItems: {
-        where: { rental: { status: { in: [...ACTIVE_STATUSES] } } },
+        where: { rental: { status: { in: [...BLOCKING_STATUSES] } } },
         include: { rental: { include: { customer: { select: { name: true } } } } },
         take: 1,
       },
@@ -180,7 +212,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     include: {
       images: true,
       rentalItems: {
-        where: { rental: { status: { in: [...ACTIVE_STATUSES] } } },
+        where: { rental: { status: { in: [...BLOCKING_STATUSES] } } },
         include: { rental: { include: { customer: { select: { name: true } } } } },
         take: 1,
       },

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, X, RotateCcw, ShoppingBag } from 'lucide-react'
+import { Plus, X, RotateCcw, ShoppingBag, Package } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
@@ -14,7 +14,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [fabOpen, setFabOpen] = useState(false)
   const fabRef = useRef<HTMLDivElement>(null)
 
-  const hideFab = pathname === '/rentals/new' || pathname === '/rentals/return'
+  const hideFab = pathname === '/rentals/new' || pathname === '/rentals/return' || pathname === '/rentals/pickup'
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -52,6 +52,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <ShoppingBag className="h-4 w-4" />
                 Rent
+              </button>
+              <button
+                onClick={() => { setFabOpen(false); router.push('/rentals/pickup') }}
+                className="flex items-center gap-2 bg-ink text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-float"
+              >
+                <Package className="h-4 w-4" />
+                Pickup
               </button>
               <button
                 onClick={() => { setFabOpen(false); router.push('/rentals/return') }}

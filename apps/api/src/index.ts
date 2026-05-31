@@ -13,7 +13,8 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads'
 // Ensure upload directory exists
 fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' }))
+const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',')
+app.use(cors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 

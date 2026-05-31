@@ -8,9 +8,11 @@ import { Plus, Users } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+import { SkeletonList } from '@/components/shared/Skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SearchInput } from '@/components/shared/SearchInput'
+import { toast } from '@/lib/toast'
+import { sanitizePhone, isValidPhone } from '@/lib/formatters'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -35,9 +37,22 @@ export default function CustomersPage() {
       queryClient.invalidateQueries({ queryKey: keys.customers() })
       setShowAdd(false)
       setForm({ name: '', phone: '', address: '' })
+      toast.success('Customer added')
     },
-    onError: (err: any) => setAddError(err.response?.data?.error ?? 'Failed'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.error ?? 'Failed to add customer'
+      setAddError(msg)
+      toast.error(msg)
+    },
   })
+
+  const phoneValid = isValidPhone(form.phone)
+
+  function handleAdd() {
+    if (!form.name || !phoneValid) return
+    setAddError('')
+    addMutation.mutate({ name: form.name, phone: form.phone, address: form.address || undefined })
+  }
 
   return (
     <div>
@@ -62,7 +77,7 @@ export default function CustomersPage() {
       </div>
 
       {isLoading ? (
-        <LoadingSpinner />
+        <SkeletonList rows={8} />
       ) : data?.data.length === 0 ? (
         <EmptyState icon={Users} title="No customers found" action={<Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Customer</Button>} />
       ) : (
@@ -88,8 +103,8 @@ export default function CustomersPage() {
       {/* Add customer sheet */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAdd(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowAdd(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Add Customer</h3>
             <div className="space-y-1.5">
               <Label>Full Name *</Label>
@@ -97,7 +112,16 @@ export default function CustomersPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Phone *</Label>
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="10-digit number" />
+              <Input
+                type="tel"
+                inputMode="numeric"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: sanitizePhone(e.target.value) }))}
+                placeholder="10-digit number"
+              />
+              {form.phone.length > 0 && !phoneValid && (
+                <p className="text-xs text-red-600">Enter a valid 10-digit mobile number.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
@@ -106,7 +130,7 @@ export default function CustomersPage() {
             {addError && <p className="text-sm text-red-600">{addError}</p>}
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button className="flex-1" disabled={addMutation.isPending || !form.name || !form.phone} onClick={() => addMutation.mutate({ name: form.name, phone: form.phone, address: form.address || undefined })}>
+              <Button className="flex-1" disabled={addMutation.isPending || !form.name || !phoneValid} onClick={handleAdd}>
                 {addMutation.isPending ? 'Adding...' : 'Add'}
               </Button>
             </div>

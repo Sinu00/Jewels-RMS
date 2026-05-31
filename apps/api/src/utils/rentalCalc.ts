@@ -8,7 +8,7 @@ export function calculateRentalDays(startDate: Date | string, dueDate: Date | st
 }
 
 export function calculateDaysOverdue(dueDate: Date | string, status: string): number {
-  if (status === 'RETURNED') return 0
+  if (status === 'RETURNED' || status === 'BOOKED' || status === 'CANCELLED') return 0
   const today = startOfDay(new Date())
   const due = startOfDay(new Date(dueDate))
   return Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)))

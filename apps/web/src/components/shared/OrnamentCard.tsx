@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Ornament } from '@rental/types'
-import { AvailabilityDot } from './AvailabilityDot'
 import { RupeeAmount } from './RupeeAmount'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +16,7 @@ interface OrnamentCardProps {
 
 export function OrnamentCard({ ornament, onClick, actionSlot, selected, className }: OrnamentCardProps) {
   const firstImage = ornament.images[0]
+  const futureCount = ornament.futureBookingsCount ?? 0
 
   const inner = (
     <div
@@ -57,7 +57,9 @@ export function OrnamentCard({ ornament, onClick, actionSlot, selected, classNam
         <p className="item-code">{ornament.itemCode}</p>
         <p className="mt-0.5 font-medium text-ink text-sm leading-snug line-clamp-2">{ornament.name}</p>
         <div className="mt-2 flex items-center justify-between">
-          <AvailabilityDot available={ornament.isAvailable} />
+          <span className="text-[10px] font-medium text-ink bg-surface border border-border px-2 py-0.5 rounded-full">
+            {futureCount} booking{futureCount === 1 ? '' : 's'}
+          </span>
         </div>
         {actionSlot && <div className="mt-2">{actionSlot}</div>}
       </div>

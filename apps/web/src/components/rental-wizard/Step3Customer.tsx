@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchInput } from '@/components/shared/SearchInput'
+import { sanitizePhone, isValidPhone } from '@/lib/formatters'
 import type { Customer, PaginatedResponse } from '@rental/types'
 
-export function Step1Customer() {
+export function Step3Customer() {
   const { customer, setCustomer, setStep, isNewCustomer, setIsNewCustomer, newCustomerData, setNewCustomerData } = useRentalWizardStore()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
@@ -30,8 +31,10 @@ export function Step1Customer() {
     setIsNewCustomer(false)
   }
 
+  const newPhoneValid = isValidPhone(newCustomerData.phone)
+
   function canProceed() {
-    if (isNewCustomer) return newCustomerData.name && newCustomerData.phone
+    if (isNewCustomer) return Boolean(newCustomerData.name) && newPhoneValid
     return customer !== null
   }
 
@@ -116,10 +119,15 @@ export function Step1Customer() {
             <div className="space-y-1.5">
               <Label>Phone *</Label>
               <Input
+                type="tel"
+                inputMode="numeric"
                 placeholder="10-digit number"
                 value={newCustomerData.phone}
-                onChange={(e) => setNewCustomerData({ phone: e.target.value })}
+                onChange={(e) => setNewCustomerData({ phone: sanitizePhone(e.target.value) })}
               />
+              {newCustomerData.phone.length > 0 && !newPhoneValid && (
+                <p className="text-xs text-red-600">Enter a valid 10-digit mobile number.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Address <span className="text-muted font-normal">(optional)</span></Label>
@@ -133,9 +141,12 @@ export function Step1Customer() {
         )}
       </div>
 
-      <Button onClick={() => setStep(2)} disabled={!canProceed()} size="lg" className="w-full">
-        Continue to Ornaments
-      </Button>
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={() => setStep(2)} size="lg">Back</Button>
+        <Button onClick={() => setStep(4)} disabled={!canProceed()} size="lg" className="flex-1">
+          Continue to pricing
+        </Button>
+      </div>
     </div>
   )
 }
