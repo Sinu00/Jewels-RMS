@@ -2,15 +2,14 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { MessageCircle, Plus, ArrowRight, LogOut, Bell, Settings } from 'lucide-react'
+import { MessageCircle, Plus, ArrowRight, LogOut, Bell, Settings, RotateCcw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queryKeys'
-import { formatINR, formatDate, formatDateInput, whatsappUrl, buildReminderMessage } from '@/lib/formatters'
+import { formatDate, formatDateInput, whatsappUrl, buildReminderMessage } from '@/lib/formatters'
 import { useAuthStore } from '@/stores/authStore'
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+import { Skeleton } from '@/components/shared/Skeleton'
 import { Button } from '@/components/ui/button'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
-import { OrnamentCard } from '@/components/shared/OrnamentCard'
 import type { DashboardStats } from '@rental/types'
 
 function getTodayStr() {
@@ -34,6 +33,8 @@ export default function DashboardPage() {
     refetchInterval: 60000,
   })
 
+  const OUT_STATUSES = ['ACTIVE', 'OVERDUE', 'EXTENDED'] as const
+
   const { data: dueSoonData } = useQuery({
     queryKey: keys.rentals({ dueSoon: true, today: todayStr }),
     queryFn: async () => {
@@ -41,29 +42,29 @@ export default function DashboardPage() {
         api.get(`/rentals?dueDate=${todayStr}&limit=10`),
         api.get(`/rentals?dueDate=${tomorrowStr}&limit=10`),
       ])
+      const seen = new Set<string>()
       const combined = [
         ...(todayRes.data.data as any[]),
         ...(tomorrowRes.data.data as any[]),
-      ].filter((r: any) => r.status !== 'RETURNED')
+      ].filter((r: any) => {
+        if (!OUT_STATUSES.includes(r.status)) return false
+        if (seen.has(r.id)) return false
+        seen.add(r.id)
+        return true
+      })
       return combined
     },
   })
 
-  const { data: availableData } = useQuery({
-    queryKey: keys.ornaments({ available: true, limit: 12 }),
-    queryFn: async () => (await api.get('/ornaments?available=true&limit=12')).data,
-  })
-
-  if (isLoading) return <LoadingSpinner />
+  if (isLoading) return <DashboardSkeleton outletName={user?.outletName} />
 
   const overdue = stats?.overdueRentals ?? 0
   const active = stats?.totalActiveRentals ?? 0
   const dueToday = stats?.dueTodayRentals ?? 0
   const todayIncome = stats?.todayIncome ?? 0
-  const available = stats?.availableOrnaments ?? 0
-  const total = stats?.totalOrnaments ?? 0
   const dueSoon: any[] = dueSoonData ?? []
-  const availableOrnaments: any[] = availableData?.data ?? []
+
+  const accountsTodayHref = `/accounts?from=${todayStr}&to=${todayStr}`
 
   return (
     <div className="max-w-2xl px-5 py-8 md:px-6">
@@ -78,7 +79,7 @@ export default function DashboardPage() {
           <Link href="/rentals/new" className="hidden md:block mr-1">
             <Button size="sm">
               <Plus className="h-4 w-4" />
-              New Rental
+              New booking
             </Button>
           </Link>
           <Link href="/notifications">
@@ -105,11 +106,59 @@ export default function DashboardPage() {
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 gap-3 mb-8">
-        <StatCell label="Active rentals" value={active} />
-        <StatCell label="Due today" value={dueToday} highlight={dueToday > 0} />
-        <StatCell label="Today's income" value={<RupeeAmount amount={todayIncome} size="lg" />} />
-        <StatCell label="Available" value={`${available} / ${total}`} sub="ornaments" />
+        <StatCell label="Out on rent" value={active} href="/rentals?view=out" />
+        <StatCell
+          label="Total bookings"
+          value={stats?.bookedRentals ?? 0}
+          highlight={(stats?.bookedRentals ?? 0) > 0}
+          href="/rentals?view=bookings"
+        />
+        <StatCell
+          label="Pickups today"
+          value={stats?.pickupsToday ?? 0}
+          highlight={(stats?.pickupsToday ?? 0) > 0}
+          href="/rentals?view=pickups-today"
+        />
+        <StatCell
+          label="Due today"
+          value={dueToday}
+          highlight={dueToday > 0}
+          href="/rentals?view=due-today"
+        />
+        <StatCell
+          label="Today's income"
+          value={<RupeeAmount amount={todayIncome} size="lg" />}
+          href={accountsTodayHref}
+        />
       </div>
+
+      {(stats?.pickupsList?.length ?? 0) > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-ink">Pickups today</h2>
+            <Link href="/rentals?view=pickups-today">
+              <span className="text-xs text-muted hover:text-ink flex items-center gap-1 transition-colors">
+                View all <ArrowRight className="h-3 w-3" />
+              </span>
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
+            {stats!.pickupsList.map((item) => (
+              <Link
+                key={item.rentalId}
+                href={`/rentals/${item.rentalId}`}
+                className="flex items-center gap-3 px-4 py-3.5 bg-card card-interactive block"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="item-code">{item.rentalNumber}</p>
+                  <p className="text-sm text-ink font-medium mt-0.5 truncate">{item.customerName}</p>
+                  <p className="text-xs text-muted truncate">{item.itemNames.join(' · ')}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Overdue */}
       {overdue > 0 && (
@@ -121,7 +170,7 @@ export default function DashboardPage() {
                 {overdue} overdue rental{overdue !== 1 ? 's' : ''}
               </h2>
             </div>
-            <Link href="/rentals?status=OVERDUE">
+            <Link href="/rentals?view=overdue">
               <span className="text-xs text-muted hover:text-ink flex items-center gap-1 transition-colors">
                 View all <ArrowRight className="h-3 w-3" />
               </span>
@@ -151,17 +200,25 @@ export default function DashboardPage() {
                     <p className="text-sm text-ink font-medium mt-0.5 truncate">{item.customerName}</p>
                     <p className="text-xs text-muted truncate">{item.itemNames.join(' · ')}</p>
                   </div>
-                  <a
-                    href={whatsappUrl(item.customerPhone, reminderMsg)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0"
-                    aria-label="Send WhatsApp reminder"
-                  >
-                    <button className="h-9 w-9 rounded-xl border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors">
-                      <MessageCircle className="h-4 w-4" />
-                    </button>
-                  </a>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={whatsappUrl(item.customerPhone, reminderMsg)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Send WhatsApp reminder"
+                    >
+                      <button className="h-9 w-9 rounded-xl border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors">
+                        <MessageCircle className="h-4 w-4" />
+                      </button>
+                    </a>
+                    <Link
+                      href={`/rentals/${item.rentalId}/return`}
+                      aria-label="Process return"
+                      className="h-9 w-9 rounded-xl border border-border text-ink bg-surface hover:bg-border flex items-center justify-center transition-colors"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Link>
+                  </div>
                 </div>
               )
             })}
@@ -182,7 +239,7 @@ export default function DashboardPage() {
         <section className="mb-10">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-ink">Due for return</h2>
-            <Link href="/rentals?status=ACTIVE">
+            <Link href="/rentals?view=due-today">
               <span className="text-xs text-muted hover:text-ink flex items-center gap-1 transition-colors">
                 View all <ArrowRight className="h-3 w-3" />
               </span>
@@ -209,27 +266,6 @@ export default function DashboardPage() {
           </div>
         </section>
       )}
-
-      {/* Available now carousel */}
-      {availableOrnaments.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-ink">Available now</h2>
-            <Link href="/inventory?available=true">
-              <span className="text-xs text-muted hover:text-ink flex items-center gap-1 transition-colors">
-                Browse all <ArrowRight className="h-3 w-3" />
-              </span>
-            </Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-5 px-5 pr-5 md:-mx-6 md:px-6 md:pr-6">
-            {availableOrnaments.map((o: any) => (
-              <div key={o.id} className="shrink-0 snap-start w-36">
-                <OrnamentCard ornament={o} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
@@ -237,21 +273,66 @@ export default function DashboardPage() {
 function StatCell({
   label,
   value,
-  sub,
+  href,
   highlight,
+  className,
 }: {
   label: string
   value: React.ReactNode
-  sub?: string
+  href: string
   highlight?: boolean
+  className?: string
 }) {
-  return (
-    <div className={`rounded-2xl border px-4 py-4 ${highlight ? 'bg-amber-50 border-amber-200' : 'bg-card border-border'}`}>
+  const content = (
+    <>
       <p className="text-xs text-muted mb-2">{label}</p>
-      <p className={`text-2xl font-display font-semibold tracking-tight ${highlight ? 'text-amber-700' : 'text-ink'}`}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
+      <div className="flex items-end justify-between gap-2">
+        <p className={`text-2xl font-display font-semibold tracking-tight ${highlight ? 'text-amber-700' : 'text-ink'}`}>
+          {value}
+        </p>
+        <ArrowRight className={`h-4 w-4 shrink-0 mb-1 ${highlight ? 'text-amber-600' : 'text-muted'}`} />
+      </div>
+    </>
+  )
+
+  return (
+    <Link
+      href={href}
+      className={`rounded-2xl border px-4 py-4 block card-interactive hover:border-ink transition-colors ${highlight ? 'bg-amber-50 border-amber-200' : 'bg-card border-border'} ${className ?? ''}`}
+    >
+      {content}
+    </Link>
+  )
+}
+
+function DashboardSkeleton({ outletName }: { outletName?: string }) {
+  return (
+    <div className="max-w-2xl px-5 py-8 md:px-6">
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <p className="text-sm text-muted font-medium mb-1">Good day</p>
+          <h1 className="text-2xl font-semibold text-ink tracking-tight leading-tight">
+            {outletName ?? <Skeleton className="h-7 w-40" />}
+          </h1>
+        </div>
+        <Skeleton className="h-9 w-9 rounded-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-border bg-card px-4 py-4 space-y-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-16" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="px-4 py-3.5 bg-card space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

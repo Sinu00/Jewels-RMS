@@ -1,6 +1,13 @@
 export type UserRole = 'ADMIN' | 'STAFF'
-export type RentalStatus = 'ACTIVE' | 'OVERDUE' | 'EXTENDED' | 'RETURNED'
-export type PaymentType = 'RENTAL' | 'DEPOSIT' | 'DEPOSIT_REFUND' | 'OTHER'
+export type RentalStatus = 'BOOKED' | 'ACTIVE' | 'OVERDUE' | 'EXTENDED' | 'RETURNED' | 'CANCELLED'
+export type PaymentPlan = 'HALF_ADVANCE' | 'FULL_RENT_DEFER_DEPOSIT' | 'FULL_UPFRONT'
+export type PaymentType =
+  | 'RENTAL'
+  | 'RENTAL_ADVANCE'
+  | 'RENTAL_BALANCE'
+  | 'DEPOSIT'
+  | 'DEPOSIT_REFUND'
+  | 'OTHER'
 export type PaymentMethod = 'CASH' | 'UPI' | 'BANK_TRANSFER'
 
 export interface AuthUser {
@@ -46,6 +53,11 @@ export interface Ornament {
   baseRatePerDay: number
   description: string | null
   isAvailable: boolean
+  /**
+   * Number of future bookings for this ornament (status=BOOKED, startDate>=today).
+   * This is an inventory-level signal; it does not encode availability for a specific date range.
+   */
+  futureBookingsCount?: number
   isDeleted: boolean
   images: OrnamentImage[]
   currentRental?: CurrentRentalInfo
@@ -103,14 +115,22 @@ export interface Rental {
   customerId: string
   customer: Pick<Customer, 'id' | 'name' | 'phone'>
   status: RentalStatus
+  paymentPlan: PaymentPlan
   startDate: string
   dueDate: string
   returnedAt: string | null
   depositAmount: number
+  depositCollected: boolean
   depositRefunded: boolean
   notes: string | null
   items: RentalItemDetail[]
   totalRentalAmount: number
+  rentalPaid?: number
+  rentalDue?: number
+  depositDue?: number
+  amountDueOnPickup?: number
+  canPickup?: boolean
+  needsPickupPayment?: boolean
   extensions: RentalExtension[]
   payments: PaymentRecord[]
   daysOverdue: number
@@ -124,6 +144,7 @@ export interface RentalSummary {
   customerId: string
   customerName: string
   status: RentalStatus
+  paymentPlan?: PaymentPlan
   startDate: string
   dueDate: string
   itemsCount: number
@@ -136,10 +157,10 @@ export interface RentalSummary {
 export interface DashboardStats {
   totalActiveRentals: number
   overdueRentals: number
+  bookedRentals: number
+  pickupsToday: number
   dueTodayRentals: number
   todayIncome: number
-  totalOrnaments: number
-  availableOrnaments: number
   overdueList: Array<{
     rentalId: string
     rentalNumber: string
@@ -149,13 +170,21 @@ export interface DashboardStats {
     itemNames: string[]
     dueDate: string
   }>
+  pickupsList: Array<{
+    rentalId: string
+    rentalNumber: string
+    customerName: string
+    customerPhone: string
+    itemNames: string[]
+    startDate: string
+  }>
 }
 
 export interface PaymentSummary {
   todayTotal: number
   weekTotal: number
   monthTotal: number
-  todayByType: Record<PaymentType, number>
+  todayByType: Record<string, number>
 }
 
 export interface PaginatedResponse<T> {
@@ -165,15 +194,22 @@ export interface PaginatedResponse<T> {
   totalPages: number
 }
 
-// DTOs for creating records
 export interface CreateRentalDto {
   customerId: string
   startDate: string
   dueDate: string
   depositAmount: number
-  depositMethod: PaymentMethod
+  paymentMethod: PaymentMethod
+  paymentPlan: PaymentPlan
   notes?: string
+  autoPickup?: boolean
   items: Array<{ ornamentId: string; ratePerDay: number }>
+}
+
+export interface RescheduleRentalDto {
+  startDate: string
+  dueDate: string
+  totalRentalAmount?: number
 }
 
 export interface CreateCustomerDto {
@@ -192,9 +228,14 @@ export interface CreateOrnamentDto {
   description?: string
 }
 
-// Wizard store state (frontend only)
 export interface WizardItem {
   ornamentId: string
   ornament: Ornament
   ratePerDay: number
+}
+
+export const PAYMENT_PLAN_LABELS: Record<PaymentPlan, string> = {
+  HALF_ADVANCE: '50% rent now, rest + deposit on pickup',
+  FULL_RENT_DEFER_DEPOSIT: 'Full rent now, deposit on pickup',
+  FULL_UPFRONT: 'Full rent + deposit now',
 }

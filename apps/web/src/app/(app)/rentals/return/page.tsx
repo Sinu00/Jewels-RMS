@@ -18,6 +18,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
+import { toast } from '@/lib/toast'
 
 export default function GenericReturnPage() {
   const router = useRouter()
@@ -47,9 +48,14 @@ export default function GenericReturnPage() {
       queryClient.invalidateQueries({ queryKey: keys.rental(data.id) })
       queryClient.invalidateQueries({ queryKey: keys.ornaments() })
       queryClient.invalidateQueries({ queryKey: keys.dashboard() })
+      toast.success(`Return completed for ${data.rentalNumber}`)
       router.push(`/rentals/${data.id}`)
     },
-    onError: (err: any) => setError(err.response?.data?.error ?? 'Failed to process return'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.error ?? 'Failed to process return'
+      setError(msg)
+      toast.error(msg)
+    },
   })
 
   function handleConfirm() {

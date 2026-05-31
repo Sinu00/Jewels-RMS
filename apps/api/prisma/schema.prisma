@@ -103,21 +103,24 @@ model Customer {
 }
 
 model Rental {
-  id              String       @id @default(cuid())
-  rentalNumber    String       @unique
-  outletId        String
-  outlet          Outlet       @relation(fields: [outletId], references: [id])
-  customerId      String
-  customer        Customer     @relation(fields: [customerId], references: [id])
-  status          RentalStatus @default(ACTIVE)
-  startDate       DateTime     @db.Date
-  dueDate         DateTime     @db.Date
-  returnedAt      DateTime?
-  depositAmount   Decimal      @db.Decimal(10, 2)
-  depositRefunded Boolean      @default(false)
-  notes           String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                String       @id @default(cuid())
+  rentalNumber      String       @unique
+  outletId          String
+  outlet            Outlet       @relation(fields: [outletId], references: [id])
+  customerId        String
+  customer          Customer     @relation(fields: [customerId], references: [id])
+  status            RentalStatus @default(BOOKED)
+  paymentPlan       PaymentPlan  @default(FULL_UPFRONT)
+  totalRentalAmount Decimal      @db.Decimal(10, 2)
+  startDate         DateTime     @db.Date
+  dueDate           DateTime     @db.Date
+  returnedAt        DateTime?
+  depositAmount     Decimal      @db.Decimal(10, 2)
+  depositCollected  Boolean      @default(false)
+  depositRefunded   Boolean      @default(false)
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   items      RentalItem[]
   extensions RentalExtension[]
@@ -130,10 +133,18 @@ model Rental {
 }
 
 enum RentalStatus {
+  BOOKED
   ACTIVE
   OVERDUE
   EXTENDED
   RETURNED
+  CANCELLED
+}
+
+enum PaymentPlan {
+  HALF_ADVANCE
+  FULL_RENT_DEFER_DEPOSIT
+  FULL_UPFRONT
 }
 
 model RentalItem {
@@ -185,6 +196,8 @@ model Payment {
 
 enum PaymentType {
   RENTAL
+  RENTAL_ADVANCE
+  RENTAL_BALANCE
   DEPOSIT
   DEPOSIT_REFUND
   OTHER

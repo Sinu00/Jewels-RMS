@@ -2,32 +2,50 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { MessageCircle, Calendar, AlertTriangle, Phone } from 'lucide-react'
+import { MessageCircle, Calendar, AlertTriangle, Phone, Package, CalendarClock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
-import { formatINR, formatDate, buildBillMessage, buildReminderMessage, whatsappUrl } from '@/lib/formatters'
+import { formatINR, formatDate, formatDateInput, buildBillMessage, buildBookingMessage, buildReminderMessage } from '@/lib/formatters'
+import { PAYMENT_PLAN_LABELS } from '@rental/types'
 import { useAuthStore } from '@/stores/authStore'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { WhatsAppButton } from '@/components/shared/WhatsAppButton'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { CopyButton } from '@/components/shared/CopyButton'
+import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/layout/PageHeader'
-import type { Rental } from '@rental/types'
+import type { Rental, PaymentMethod } from '@rental/types'
+
+function daysBetween(start: string, end: string): number {
+  if (!start || !end) return 0
+  const ms = new Date(end).getTime() - new Date(start).getTime()
+  return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+}
 
 export default function RentalDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
   const [showExtend, setShowExtend] = useState(false)
+  const [showPickup, setShowPickup] = useState(false)
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [showCancel, setShowCancel] = useState(false)
+  const [pickupMethod, setPickupMethod] = useState<PaymentMethod>('CASH')
   const [newDueDate, setNewDueDate] = useState('')
   const [reason, setReason] = useState('')
+  const [newStart, setNewStart] = useState('')
+  const [newDue, setNewDue] = useState('')
+  const [newTotal, setNewTotal] = useState('')
+  const [rescheduleError, setRescheduleError] = useState('')
 
   const { data: rental, isLoading } = useQuery<Rental>({
     queryKey: keys.rental(id),
@@ -40,36 +58,121 @@ export default function RentalDetailPage() {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
       setShowExtend(false)
+      toast.success('Rental extended')
     },
+    onError: (err: any) => toast.error(err.response?.data?.error ?? 'Failed to extend rental'),
+  })
+
+  const pickupMutation = useMutation({
+    mutationFn: () => api.post(`/rentals/${id}/pickup`, { method: pickupMethod }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.rental(id) })
+      queryClient.invalidateQueries({ queryKey: keys.rentals() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      setShowPickup(false)
+      toast.success('Pickup completed')
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error ?? 'Failed to complete pickup'),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.post(`/rentals/${id}/cancel`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.rental(id) })
+      queryClient.invalidateQueries({ queryKey: keys.rentals() })
+      queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      setShowCancel(false)
+      toast.success('Booking cancelled')
+    },
+    onError: (err: any) => {
+      setShowCancel(false)
+      toast.error(err.response?.data?.error ?? 'Failed to cancel booking')
+    },
+  })
+
+  const rescheduleMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/rentals/${id}/reschedule`, {
+        startDate: newStart,
+        dueDate: newDue,
+        totalRentalAmount: newTotal === '' ? undefined : Number(newTotal),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.rental(id) })
+      queryClient.invalidateQueries({ queryKey: keys.rentals() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      setShowReschedule(false)
+      toast.success('Booking dates updated')
+    },
+    onError: (err: any) =>
+      setRescheduleError(err.response?.data?.error ?? 'Failed to change dates'),
   })
 
   if (isLoading) return <LoadingSpinner />
   if (!rental) return <div className="p-6 text-muted">Rental not found</div>
 
   const outletName = user?.outletName ?? 'Our Shop'
-  const billMsg = buildBillMessage(rental, outletName)
+  const isBooked = rental.status === 'BOOKED'
+  const isOut = ['ACTIVE', 'OVERDUE', 'EXTENDED'].includes(rental.status)
+  const canAct = isBooked || isOut
+  const billMsg = isBooked
+    ? buildBookingMessage(rental, outletName)
+    : buildBillMessage(rental, outletName)
   const reminderMsg = buildReminderMessage(rental)
-  const canAct = rental.status !== 'RETURNED'
+
+  // Sum of per-day rates across items — used to auto-recompute the total when dates change.
+  const ratePerDayTotal = rental.items.reduce((sum, item) => sum + item.ratePerDay, 0)
+
+  function openReschedule() {
+    if (!rental) return
+    const start = formatDateInput(rental.startDate)
+    const due = formatDateInput(rental.dueDate)
+    setNewStart(start)
+    setNewDue(due)
+    setNewTotal(String(rental.totalRentalAmount))
+    setRescheduleError('')
+    setShowReschedule(true)
+  }
+
+  function applyDates(start: string, due: string) {
+    setNewStart(start)
+    setNewDue(due)
+    // Auto-recompute the suggested total for the new duration (still editable below).
+    setNewTotal(String(ratePerDayTotal * daysBetween(start, due)))
+  }
+
+  const rescheduleDays = daysBetween(newStart, newDue)
 
   return (
     <div>
       <PageHeader
         title={rental.rentalNumber}
         back="/rentals"
-        action={rental.daysOverdue > 0 ? (
-          <span className="flex items-center gap-1.5 text-red-600 text-sm font-medium bg-red-50 border border-red-100 px-3 py-1.5 rounded-full">
-            <AlertTriangle className="h-3.5 w-3.5" />{rental.daysOverdue}d overdue
-          </span>
-        ) : undefined}
+        action={
+          <>
+            {rental.daysOverdue > 0 && (
+              <span className="flex items-center gap-1.5 text-red-600 text-sm font-medium bg-red-50 border border-red-100 px-3 py-1.5 rounded-full">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {rental.daysOverdue}d overdue
+              </span>
+            )}
+            <CopyButton value={rental.rentalNumber} label="Rental number copied" className="h-9 w-9 bg-surface border border-border" />
+          </>
+        }
       />
 
       <div className="px-5 md:px-6 max-w-2xl space-y-4 pb-32 md:pb-8">
-        {/* Status + customer row */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <StatusBadge status={rental.status} />
-              <Link href={`/customers/${rental.customerId}`} className="block mt-2 text-base font-semibold text-ink hover:text-muted transition-colors">
+              <p className="text-xs text-muted mt-2">{PAYMENT_PLAN_LABELS[rental.paymentPlan]}</p>
+              <Link
+                href={`/customers/${rental.customerId}`}
+                className="block mt-2 text-base font-semibold text-ink hover:text-muted transition-colors"
+              >
                 {rental.customer.name}
               </Link>
               <p className="text-sm text-muted mt-0.5">{rental.customer.phone}</p>
@@ -83,12 +186,14 @@ export default function RentalDetailPage() {
           </div>
           <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-muted">Rented on</p>
+              <p className="text-xs text-muted">Pickup</p>
               <p className="font-medium mt-0.5">{formatDate(rental.startDate)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted">Due date</p>
-              <p className={`font-medium mt-0.5 ${rental.daysOverdue > 0 ? 'text-red-600' : ''}`}>{formatDate(rental.dueDate)}</p>
+              <p className="text-xs text-muted">Return</p>
+              <p className={`font-medium mt-0.5 ${rental.daysOverdue > 0 ? 'text-red-600' : ''}`}>
+                {formatDate(rental.dueDate)}
+              </p>
             </div>
             {rental.returnedAt && (
               <div>
@@ -105,15 +210,32 @@ export default function RentalDetailPage() {
           </div>
         </div>
 
-        {/* Items */}
+        {isBooked && (rental.amountDueOnPickup ?? 0) > 0 && (
+          <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200">
+            <p className="text-sm font-semibold text-amber-900">Due on pickup</p>
+            <RupeeAmount amount={rental.amountDueOnPickup ?? 0} size="lg" className="text-amber-900 mt-1" />
+            {(rental.rentalDue ?? 0) > 0 && (
+              <p className="text-xs text-amber-800 mt-1">Rent balance: {formatINR(rental.rentalDue ?? 0)}</p>
+            )}
+            {(rental.depositDue ?? 0) > 0 && (
+              <p className="text-xs text-amber-800">Deposit: {formatINR(rental.depositDue ?? 0)}</p>
+            )}
+          </div>
+        )}
+
         <div>
           <p className="text-sm font-semibold mb-3">Items ({rental.items.length})</p>
           <div className="space-y-2">
             {rental.items.map((item) => (
-              <div key={item.id} className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between text-sm">
+              <div
+                key={item.id}
+                className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between text-sm"
+              >
                 <div>
                   <p className="font-medium">{item.ornament.name}</p>
-                  <p className="text-xs text-muted mt-0.5">{item.ornament.itemCode} · {formatINR(item.ratePerDay)}/day</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {item.ornament.itemCode} · {formatINR(item.ratePerDay)}/day
+                  </p>
                 </div>
                 <p className="font-display font-semibold text-base">{formatINR(item.totalAmount)}</p>
               </div>
@@ -123,37 +245,79 @@ export default function RentalDetailPage() {
             <span className="text-sm text-muted">Rental total</span>
             <RupeeAmount amount={rental.totalRentalAmount} size="md" />
           </div>
+          {(rental.rentalPaid ?? 0) > 0 && (
+            <p className="text-xs text-muted mt-1 px-1">Paid so far: {formatINR(rental.rentalPaid ?? 0)}</p>
+          )}
         </div>
 
-        {/* Deposit */}
         <div className="rounded-2xl p-4 bg-card border border-border">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-semibold">Security Deposit</p>
-              <p className="text-xs text-muted mt-0.5">{rental.depositRefunded ? 'Refunded to customer' : 'Currently held'}</p>
+              <p className="text-xs text-muted mt-0.5">
+                {rental.depositRefunded
+                  ? 'Refunded to customer'
+                  : rental.depositCollected
+                    ? 'Collected'
+                    : 'Due on pickup'}
+              </p>
             </div>
-            <RupeeAmount amount={rental.depositAmount} size="lg" className={rental.depositRefunded ? 'text-muted line-through' : 'text-ink'} />
+            <RupeeAmount
+              amount={rental.depositAmount}
+              size="lg"
+              className={rental.depositRefunded ? 'text-muted line-through' : 'text-ink'}
+            />
           </div>
         </div>
 
-        {/* Secondary actions — always visible */}
         {canAct && (
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowExtend(true)}>
-              <Calendar className="h-4 w-4" />Extend
-            </Button>
-            <WhatsAppButton phone={rental.customer.phone} message={billMsg} label="Bill" />
-            <WhatsAppButton phone={rental.customer.phone} message={reminderMsg} label="Remind" />
+          <div className="flex flex-wrap gap-2">
+            {isBooked && rental.canPickup && (
+              <Button className="flex-1" onClick={() => setShowPickup(true)}>
+                <Package className="h-4 w-4" />
+                Complete pickup
+              </Button>
+            )}
+            {isBooked && (
+              <Button variant="outline" onClick={openReschedule}>
+                <CalendarClock className="h-4 w-4" />
+                Change dates
+              </Button>
+            )}
+            {isBooked && (
+              <Button
+                variant="outline"
+                onClick={() => setShowCancel(true)}
+                disabled={cancelMutation.isPending}
+              >
+                Cancel
+              </Button>
+            )}
+            {isOut && (
+              <>
+                <Button variant="outline" className="flex-1" onClick={() => setShowExtend(true)}>
+                  <Calendar className="h-4 w-4" />
+                  Extend
+                </Button>
+                <WhatsAppButton phone={rental.customer.phone} message={billMsg} label="Bill" />
+                <WhatsAppButton phone={rental.customer.phone} message={reminderMsg} label="Remind" />
+              </>
+            )}
+            {isBooked && (
+              <WhatsAppButton phone={rental.customer.phone} message={billMsg} label="Confirm" />
+            )}
           </div>
         )}
 
-        {/* Extensions */}
         {rental.extensions.length > 0 && (
           <div>
             <p className="text-sm font-semibold mb-3">Extensions</p>
             <div className="space-y-2">
               {rental.extensions.map((ext) => (
-                <div key={ext.id} className="text-sm text-muted bg-card border border-border rounded-xl px-4 py-3 border-l-2 border-l-border">
+                <div
+                  key={ext.id}
+                  className="text-sm text-muted bg-card border border-border rounded-xl px-4 py-3 border-l-2 border-l-border"
+                >
                   {formatDate(ext.previousDueDate)} → {formatDate(ext.newDueDate)}
                   {ext.reason && <span className="text-muted"> · {ext.reason}</span>}
                 </div>
@@ -162,18 +326,28 @@ export default function RentalDetailPage() {
           </div>
         )}
 
-        {/* Payments */}
         <div>
           <p className="text-sm font-semibold mb-3">Payments</p>
           <div className="space-y-2">
+            {rental.payments.length === 0 && (
+              <p className="text-sm text-muted">No payments recorded yet</p>
+            )}
             {rental.payments.map((p) => (
-              <div key={p.id} className="flex justify-between items-center text-sm bg-card border border-border rounded-xl px-4 py-3">
+              <div
+                key={p.id}
+                className="flex justify-between items-center text-sm bg-card border border-border rounded-xl px-4 py-3"
+              >
                 <div>
                   <p className="font-medium capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</p>
-                  <p className="text-xs text-muted mt-0.5">{p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}
+                  </p>
                 </div>
-                <span className={`font-display font-semibold ${p.type === 'DEPOSIT_REFUND' ? 'text-red-600' : 'text-green-700'}`}>
-                  {p.type === 'DEPOSIT_REFUND' ? '−' : '+'}{formatINR(p.amount)}
+                <span
+                  className={`font-display font-semibold ${p.type === 'DEPOSIT_REFUND' ? 'text-red-600' : 'text-green-700'}`}
+                >
+                  {p.type === 'DEPOSIT_REFUND' ? '−' : '+'}
+                  {formatINR(p.amount)}
                 </span>
               </div>
             ))}
@@ -181,38 +355,154 @@ export default function RentalDetailPage() {
         </div>
       </div>
 
-      {/* Sticky Process Return CTA — mobile */}
-      {canAct && (
+      {isOut && (
         <div className="fixed bottom-[88px] inset-x-4 z-30 md:hidden">
           <Link href={`/rentals/${id}/return`}>
-            <Button className="w-full" size="lg">Process Return</Button>
+            <Button className="w-full" size="lg">
+              Process Return
+            </Button>
           </Link>
         </div>
       )}
 
-      {/* Extend dialog */}
+      {showPickup && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowPickup(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+            <h3 className="font-semibold">Complete pickup</h3>
+            {(rental.amountDueOnPickup ?? 0) > 0 ? (
+              <>
+                <p className="text-sm text-muted">Collect from customer:</p>
+                <RupeeAmount amount={rental.amountDueOnPickup ?? 0} size="lg" />
+                <div className="space-y-1.5">
+                  <Label>Payment method</Label>
+                  <Select value={pickupMethod} onChange={(e) => setPickupMethod(e.target.value as PaymentMethod)}>
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </Select>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted">All payments collected. Mark ornaments as picked up?</p>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowPickup(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={pickupMutation.isPending}
+                onClick={() => pickupMutation.mutate()}
+              >
+                {pickupMutation.isPending ? 'Processing…' : 'Confirm pickup'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReschedule && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowReschedule(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+            <h3 className="font-semibold">Change booking dates</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Pickup date</Label>
+                <Input
+                  type="date"
+                  value={newStart}
+                  onChange={(e) => applyDates(e.target.value, newDue < e.target.value ? e.target.value : newDue)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Return date</Label>
+                <Input
+                  type="date"
+                  value={newDue}
+                  min={newStart}
+                  onChange={(e) => applyDates(newStart, e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted">
+              {rescheduleDays} day{rescheduleDays !== 1 ? 's' : ''} rental duration
+            </p>
+            <div className="space-y-1.5">
+              <Label>Rental total (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={newTotal}
+                onChange={(e) => setNewTotal(e.target.value)}
+              />
+              <p className="text-xs text-muted">Auto-calculated from the new dates — edit if needed.</p>
+            </div>
+            {rescheduleError && (
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{rescheduleError}</p>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowReschedule(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!newStart || !newDue || newDue < newStart || rescheduleMutation.isPending}
+                onClick={() => { setRescheduleError(''); rescheduleMutation.mutate() }}
+              >
+                {rescheduleMutation.isPending ? 'Saving...' : 'Save dates'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showExtend && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowExtend(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowExtend(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Extend Rental</h3>
             <div className="space-y-1.5">
               <Label>New Due Date</Label>
-              <Input type="date" value={newDueDate} min={rental.dueDate as string} onChange={(e) => setNewDueDate(e.target.value)} />
+              <Input
+                type="date"
+                value={newDueDate}
+                min={rental.dueDate as string}
+                onChange={(e) => setNewDueDate(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Reason (optional)</Label>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer requested extension" />
+              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setShowExtend(false)}>Cancel</Button>
-              <Button className="flex-1" disabled={!newDueDate || extendMutation.isPending} onClick={() => extendMutation.mutate()}>
+              <Button variant="outline" className="flex-1" onClick={() => setShowExtend(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!newDueDate || extendMutation.isPending}
+                onClick={() => extendMutation.mutate()}
+              >
                 {extendMutation.isPending ? 'Saving...' : 'Extend'}
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showCancel}
+        title="Cancel this booking?"
+        description="The reserved ornaments will be freed for other customers. This cannot be undone."
+        confirmLabel="Cancel booking"
+        cancelLabel="Keep booking"
+        destructive
+        loading={cancelMutation.isPending}
+        onConfirm={() => cancelMutation.mutate()}
+        onCancel={() => setShowCancel(false)}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { startOfDay, startOfWeek, startOfMonth } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
+import { RENTAL_INCOME_TYPES } from '../utils/rentalPayments'
 
 const router = Router()
 router.use(requireAuth)
@@ -9,14 +10,18 @@ router.use(requireAuth)
 // GET /payments
 router.get('/', async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
-  const { type, method, from, to, page = '1', limit = '20' } = req.query as Record<string, string>
+  const { type, method, from, to, incomeOnly, page = '1', limit = '20' } = req.query as Record<string, string>
 
   const pageNum = Math.max(1, parseInt(page))
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)))
   const skip = (pageNum - 1) * limitNum
 
   const where: any = { outletId }
-  if (type) where.type = type
+  if (incomeOnly === 'true') {
+    where.type = { in: RENTAL_INCOME_TYPES }
+  } else if (type) {
+    where.type = type
+  }
   if (method) where.method = method
   if (from || to) {
     where.createdAt = {}
@@ -60,6 +65,8 @@ router.get('/', async (req: Request, res: Response) => {
 
   const todayByType: Record<string, number> = {
     RENTAL: 0,
+    RENTAL_ADVANCE: 0,
+    RENTAL_BALANCE: 0,
     DEPOSIT: 0,
     DEPOSIT_REFUND: 0,
     OTHER: 0,

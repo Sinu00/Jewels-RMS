@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jewels – Software Overview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f8f5f0;
+      color: #1a1a1a;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ── COVER ── */
+    .cover {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white;
+      padding: 64px 60px 56px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      min-height: 220px;
+      page-break-after: always;
+    }
+    .cover-left h1 {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+    .cover-left .tagline {
+      font-size: 16px;
+      opacity: 0.7;
+      font-weight: 400;
+    }
+    .cover-right {
+      text-align: right;
+      opacity: 0.55;
+      font-size: 12px;
+    }
+    .cover-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    /* ── LAYOUT ── */
+    .page-body {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 32px 60px;
+    }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 48px 0 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e8e2d9;
+    }
+    .section-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .section-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .section-header p {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* ── INTRO BOX ── */
+    .intro-box {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 8px;
+      border: 1px solid #ede8e1;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .intro-box h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+    .intro-box p {
+      color: #555;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+
+    /* ── PAGE CARDS GRID ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid #ede8e1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: box-shadow 0.2s;
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .card-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .card .page-path {
+      font-size: 10px;
+      color: #aaa;
+      font-family: monospace;
+      margin-top: 1px;
+    }
+    .card p {
+      color: #666;
+      font-size: 12.5px;
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .feature-list li {
+      background: #f4f1ec;
+      color: #555;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    /* COLORS */
+    .bg-blue   { background: #e8f0fe; }
+    .bg-green  { background: #e6f4ea; }
+    .bg-amber  { background: #fef3e2; }
+    .bg-purple { background: #f3e8fd; }
+    .bg-red    { background: #fde8e8; }
+    .bg-teal   { background: #e4f6f4; }
+    .bg-indigo { background: #eef0fd; }
+    .bg-pink   { background: #fde8f3; }
+    .bg-dark   { background: #1a1a2e; }
+
+    /* ── FEATURE AREA CARDS ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .feature-card {
+      background: white;
+      border-radius: 14px;
+      padding: 22px 24px;
+      border: 1px solid #ede8e1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .feature-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .feature-card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .feature-card p {
+      color: #555;
+      font-size: 12.5px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .bullet-list {
+      list-style: none;
+    }
+    .bullet-list li {
+      color: #444;
+      font-size: 12.5px;
+      padding: 3px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+    .bullet-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #bbb;
+      font-size: 11px;
+    }
+
+    /* ── USER ROLES ── */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .role-card {
+      background: white;
+      border-radius: 14px;
+      padding: 22px 24px;
+      border: 1px solid #ede8e1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .role-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    .role-badge.admin { background: #fef3e2; color: #c77700; }
+    .role-badge.staff { background: #e6f4ea; color: #2d7d46; }
+    .role-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .role-card p { color: #666; font-size: 12.5px; line-height: 1.6; }
+
+    /* ── FLOW DIAGRAM ── */
+    .flow-box {
+      background: white;
+      border-radius: 14px;
+      padding: 28px 32px;
+      border: 1px solid #ede8e1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .flow-step {
+      text-align: center;
+      flex: 1;
+      min-width: 100px;
+    }
+    .flow-step-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin: 0 auto 8px;
+    }
+    .flow-step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+    }
+    .flow-step-desc {
+      font-size: 11px;
+      color: #999;
+      margin-top: 3px;
+    }
+    .flow-arrow {
+      font-size: 20px;
+      color: #ccc;
+      flex-shrink: 0;
+      padding: 0 4px;
+      margin-bottom: 24px;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #e8e2d9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #aaa;
+      font-size: 11px;
+    }
+
+    /* ── PRINT ── */
+    @media print {
+      body { background: white; font-size: 12px; }
+      .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .card, .feature-card, .role-card, .intro-box, .flow-box {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+      .section-header { page-break-inside: avoid; }
+      .cards-grid, .feature-grid, .roles-grid { page-break-inside: avoid; }
+      .page-body { padding: 24px 20px; }
+      a { text-decoration: none; color: inherit; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ COVER ══════════════ -->
+<div class="cover">
+  <div class="cover-left">
+    <div class="cover-badge">Software Overview</div>
+    <h1>Jewels</h1>
+    <p class="tagline">Jewelry Rental Management System</p>
+  </div>
+  <div class="cover-right">
+    <div>Prepared: May 2026</div>
+    <div style="margin-top:4px">Version 1.0 — Web Application</div>
+  </div>
+</div>
+
+<!-- ══════════════ BODY ══════════════ -->
+<div class="page-body">
+
+  <!-- INTRO -->
+  <div class="intro-box" style="margin-top: 8px;">
+    <h3>What is Jewels?</h3>
+    <p>
+      Jewels is a full-featured web application for managing a jewelry rental business.
+      Staff can add customers, rent out ornaments, track due dates, process returns, and
+      monitor income — all from one place. The system works on both desktop computers and
+      mobile phones. There are two access levels: <strong>Admin</strong> (full control)
+      and <strong>Staff</strong> (day-to-day operations).
+    </p>
+  </div>
+
+  <!-- ───── ALL PAGES ───── -->
+  <div class="section-header">
+    <div class="section-icon bg-blue">📄</div>
+    <div>
+      <h2>All Pages at a Glance</h2>
+      <p>Every screen in the application and what it does</p>
+    </div>
+  </div>
+
+  <div class="cards-grid">
+
+    <!-- Dashboard -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-blue">🏠</div>
+        <div>
+          <h3>Dashboard</h3>
+          <div class="page-path">/dashboard</div>
+        </div>
+      </div>
+      <p>The home screen after login. Shows a live summary of the business at a glance.</p>
+      <ul class="feature-list">
+        <li>Active rentals count</li>
+        <li>Due today</li>
+        <li>Today's income</li>
+        <li>Available ornaments</li>
+        <li>Overdue alerts</li>
+        <li>WhatsApp reminders</li>
+      </ul>
+    </div>
+
+    <!-- Rentals List -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-amber">📋</div>
+        <div>
+          <h3>Rentals List</h3>
+          <div class="page-path">/rentals</div>
+        </div>
+      </div>
+      <p>A full list of all rental orders. Filter by status or search by customer name / rental number.</p>
+      <ul class="feature-list">
+        <li>All / Active / Overdue</li>
+        <li>Extended / Returned</li>
+        <li>Search bar</li>
+        <li>Overdue indicators</li>
+      </ul>
+    </div>
+
+    <!-- New Rental -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-green">➕</div>
+        <div>
+          <h3>New Rental</h3>
+          <div class="page-path">/rentals/new</div>
+        </div>
+      </div>
+      <p>Create a fresh rental order — pick a customer, select ornaments, set the rental period, and confirm.</p>
+      <ul class="feature-list">
+        <li>Customer picker</li>
+        <li>Item selector</li>
+        <li>Dates & deposit</li>
+        <li>Rental amount</li>
+      </ul>
+    </div>
+
+    <!-- Rental Detail -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-amber">🔍</div>
+        <div>
+          <h3>Rental Detail</h3>
+          <div class="page-path">/rentals/[id]</div>
+        </div>
+      </div>
+      <p>Full view of a single rental — items, amounts, dates, and actions like extending or sending a WhatsApp bill.</p>
+      <ul class="feature-list">
+        <li>Item breakdown</li>
+        <li>Extend rental</li>
+        <li>WhatsApp bill</li>
+        <li>Status badge</li>
+      </ul>
+    </div>
+
+    <!-- Return Rental -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-green">↩️</div>
+        <div>
+          <h3>Return Rental</h3>
+          <div class="page-path">/rentals/return</div>
+        </div>
+      </div>
+      <p>Process the return of a rental — mark items as returned, calculate any extra charges, refund the deposit.</p>
+      <ul class="feature-list">
+        <li>Item checklist</li>
+        <li>Extra charges</li>
+        <li>Deposit refund</li>
+        <li>Close rental</li>
+      </ul>
+    </div>
+
+    <!-- Inventory -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-purple">💍</div>
+        <div>
+          <h3>Inventory</h3>
+          <div class="page-path">/inventory</div>
+        </div>
+      </div>
+      <p>Browse all ornaments in the catalog. Filter by category or availability to quickly find what's free to rent.</p>
+      <ul class="feature-list">
+        <li>Grid / card view</li>
+        <li>Category filter</li>
+        <li>Available only filter</li>
+        <li>Item codes</li>
+      </ul>
+    </div>
+
+    <!-- Add Ornament -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-purple">➕</div>
+        <div>
+          <h3>Add Ornament</h3>
+          <div class="page-path">/inventory/add</div>
+        </div>
+      </div>
+      <p>Add a new piece of jewelry to the catalog with details like category, item code, and rental rate.</p>
+      <ul class="feature-list">
+        <li>Item name & code</li>
+        <li>Category</li>
+        <li>Rental rate</li>
+        <li>Description</li>
+      </ul>
+    </div>
+
+    <!-- Ornament Detail -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-purple">🔎</div>
+        <div>
+          <h3>Ornament Detail / Edit</h3>
+          <div class="page-path">/inventory/[id]</div>
+        </div>
+      </div>
+      <p>View a specific ornament's full details, rental history, and current status. Edit any details if needed.</p>
+      <ul class="feature-list">
+        <li>Full details</li>
+        <li>Availability status</li>
+        <li>Edit form</li>
+      </ul>
+    </div>
+
+    <!-- Customers -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-teal">👥</div>
+        <div>
+          <h3>Customers</h3>
+          <div class="page-path">/customers</div>
+        </div>
+      </div>
+      <p>Manage the customer database. Search by name or phone, see active rentals per customer, add new customers.</p>
+      <ul class="feature-list">
+        <li>Search by name/phone</li>
+        <li>Active rental count</li>
+        <li>Add new customer</li>
+      </ul>
+    </div>
+
+    <!-- Customer Profile -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-teal">👤</div>
+        <div>
+          <h3>Customer Profile</h3>
+          <div class="page-path">/customers/[id]</div>
+        </div>
+      </div>
+      <p>Full profile for a single customer — contact details and complete rental history with this customer.</p>
+      <ul class="feature-list">
+        <li>Contact info</li>
+        <li>Rental history</li>
+        <li>Active rentals</li>
+      </ul>
+    </div>
+
+    <!-- Accounts -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-indigo">💰</div>
+        <div>
+          <h3>Accounts</h3>
+          <div class="page-path">/accounts</div>
+        </div>
+      </div>
+      <p>Track all money in and out — rental income and security deposits. Filter by payment method and date range.</p>
+      <ul class="feature-list">
+        <li>Income tab</li>
+        <li>Deposits tab</li>
+        <li>Cash / UPI / Bank</li>
+        <li>Date range filter</li>
+        <li>Period summaries</li>
+      </ul>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-red">🔔</div>
+        <div>
+          <h3>Notifications</h3>
+          <div class="page-path">/notifications</div>
+        </div>
+      </div>
+      <p>A dedicated page showing all rentals due for return tomorrow so staff can prepare in advance.</p>
+      <ul class="feature-list">
+        <li>Due tomorrow list</li>
+        <li>Quick links to rentals</li>
+        <li>Customer names</li>
+      </ul>
+    </div>
+
+    <!-- Settings -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-amber">⚙️</div>
+        <div>
+          <h3>Settings</h3>
+          <div class="page-path">/settings</div>
+        </div>
+      </div>
+      <p>Admin-only area for configuring master data — outlets, ornament categories, and system-wide settings.</p>
+      <ul class="feature-list">
+        <li>Outlets / Branches</li>
+        <li>Ornament Categories</li>
+        <li>Admin only</li>
+      </ul>
+    </div>
+
+    <!-- Outlets -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-amber">🏪</div>
+        <div>
+          <h3>Outlet Management</h3>
+          <div class="page-path">/settings/outlets</div>
+        </div>
+      </div>
+      <p>Manage branches/outlets. Add, edit, or remove outlets. Assign staff members to each outlet.</p>
+      <ul class="feature-list">
+        <li>Add / edit outlets</li>
+        <li>Assign staff</li>
+        <li>View staff per outlet</li>
+        <li>Delete outlets</li>
+      </ul>
+    </div>
+
+    <!-- Categories -->
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-pink">🏷️</div>
+        <div>
+          <h3>Ornament Categories</h3>
+          <div class="page-path">/settings/categories</div>
+        </div>
+      </div>
+      <p>Define and manage the list of jewelry categories (e.g. Necklace, Earrings, Bangles) used across the app.</p>
+      <ul class="feature-list">
+        <li>Add categories</li>
+        <li>Remove categories</li>
+        <li>Used in inventory</li>
+      </ul>
+    </div>
+
+  </div><!-- /cards-grid -->
+
+
+  <!-- ───── CORE FEATURES ───── -->
+  <div class="section-header">
+    <div class="section-icon bg-green">✨</div>
+    <div>
+      <h2>Core Features</h2>
+      <p>The main capabilities the system provides</p>
+    </div>
+  </div>
+
+  <div class="feature-grid">
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-amber">📋</div>
+        <h3>Rental Management</h3>
+      </div>
+      <p>The heart of the system — create and manage the full lifecycle of every rental order.</p>
+      <ul class="bullet-list">
+        <li>Create rental orders with multiple ornaments</li>
+        <li>Track status: Active, Overdue, Extended, Returned</li>
+        <li>Extend due dates when a customer needs more time</li>
+        <li>Process returns and close orders cleanly</li>
+        <li>Automatic overdue detection with day count</li>
+        <li>Send WhatsApp bills and reminders to customers</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-purple">💍</div>
+        <h3>Inventory Management</h3>
+      </div>
+      <p>Maintain a complete catalog of every ornament available for rent.</p>
+      <ul class="bullet-list">
+        <li>Add ornaments with names, codes, and categories</li>
+        <li>Set rental rates per ornament</li>
+        <li>Real-time availability — items auto-lock when rented</li>
+        <li>Browse and filter the full catalog easily</li>
+        <li>Edit or update item details at any time</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-teal">👥</div>
+        <h3>Customer Management</h3>
+      </div>
+      <p>Keep a clean record of every customer and their rental activity.</p>
+      <ul class="bullet-list">
+        <li>Store name, phone, and address</li>
+        <li>See all past and current rentals per customer</li>
+        <li>Add new customers directly when creating a rental</li>
+        <li>Search by name or phone number instantly</li>
+        <li>WhatsApp integration using stored phone number</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-indigo">💰</div>
+        <h3>Financial Accounts</h3>
+      </div>
+      <p>Full visibility into all money collected through rentals and deposits.</p>
+      <ul class="bullet-list">
+        <li>Track rental income by day, week, and month</li>
+        <li>Manage security deposits collected and refunded</li>
+        <li>Supports Cash, UPI, and Bank Transfer payments</li>
+        <li>Filter transactions by date range</li>
+        <li>Net deposit balance always visible</li>
+        <li>Every transaction linked to the rental order</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-blue">🏠</div>
+        <h3>Dashboard &amp; Overview</h3>
+      </div>
+      <p>A smart home screen that gives staff everything they need the moment they log in.</p>
+      <ul class="bullet-list">
+        <li>Live count of active rentals</li>
+        <li>Ornaments due back today or tomorrow</li>
+        <li>Today's income at a glance</li>
+        <li>Overdue rentals highlighted with alert</li>
+        <li>Available ornaments carousel</li>
+        <li>Quick action buttons (New Rental, Return)</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-card-header">
+        <div class="feature-card-icon bg-amber">⚙️</div>
+        <h3>Admin Settings</h3>
+      </div>
+      <p>System configuration for the business owner or admin — not visible to regular staff.</p>
+      <ul class="bullet-list">
+        <li>Manage multiple outlets / branches</li>
+        <li>Assign staff users to specific outlets</li>
+        <li>Define ornament categories</li>
+        <li>Role-based access: Admin vs Staff permissions</li>
+      </ul>
+    </div>
+
+  </div><!-- /feature-grid -->
+
+
+  <!-- ───── RENTAL FLOW ───── -->
+  <div class="section-header">
+    <div class="section-icon bg-amber">🔄</div>
+    <div>
+      <h2>How a Typical Rental Works</h2>
+      <p>Step-by-step flow from booking to return</p>
+    </div>
+  </div>
+
+  <div class="flow-box">
+    <div class="flow-steps">
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-teal">👤</div>
+        <div class="flow-step-label">1. Customer</div>
+        <div class="flow-step-desc">Select or add customer</div>
+      </div>
+      <div class="flow-arrow">›</div>
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-purple">💍</div>
+        <div class="flow-step-label">2. Pick Items</div>
+        <div class="flow-step-desc">Choose ornaments from catalog</div>
+      </div>
+      <div class="flow-arrow">›</div>
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-indigo">📅</div>
+        <div class="flow-step-label">3. Set Dates</div>
+        <div class="flow-step-desc">Rental period &amp; deposit</div>
+      </div>
+      <div class="flow-arrow">›</div>
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-amber">📲</div>
+        <div class="flow-step-label">4. Confirm</div>
+        <div class="flow-step-desc">Create order, send WhatsApp bill</div>
+      </div>
+      <div class="flow-arrow">›</div>
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-red">⏰</div>
+        <div class="flow-step-label">5. Monitor</div>
+        <div class="flow-step-desc">Track due dates &amp; overdue</div>
+      </div>
+      <div class="flow-arrow">›</div>
+
+      <div class="flow-step">
+        <div class="flow-step-icon bg-green">✅</div>
+        <div class="flow-step-label">6. Return</div>
+        <div class="flow-step-desc">Process return, refund deposit</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ───── USER ROLES ───── -->
+  <div class="section-header">
+    <div class="section-icon bg-teal">👤</div>
+    <div>
+      <h2>User Roles &amp; Access</h2>
+      <p>Two levels of access built into the system</p>
+    </div>
+  </div>
+
+  <div class="roles-grid">
+
+    <div class="role-card">
+      <div class="role-badge admin">Admin</div>
+      <h3>Business Owner / Manager</h3>
+      <p>Full access to everything in the system. Can manage outlets, categories, users, and see all financial data.
+         Responsible for setting up and configuring the system.</p>
+      <ul class="bullet-list" style="margin-top:10px">
+        <li>All staff permissions</li>
+        <li>View and manage Settings</li>
+        <li>Add/edit outlets and branches</li>
+        <li>Create staff accounts</li>
+        <li>Manage ornament categories</li>
+      </ul>
+    </div>
+
+    <div class="role-card">
+      <div class="role-badge staff">Staff</div>
+      <h3>Shop Staff / Operator</h3>
+      <p>Day-to-day operations access. Can handle rentals, customers, and inventory but cannot change system settings
+         or access admin configuration.</p>
+      <ul class="bullet-list" style="margin-top:10px">
+        <li>View Dashboard</li>
+        <li>Create and manage rentals</li>
+        <li>Add customers and ornaments</li>
+        <li>Process returns</li>
+        <li>View accounts and income</li>
+      </ul>
+    </div>
+
+  </div>
+
+
+  <!-- ───── ACCESS ───── -->
+  <div class="section-header">
+    <div class="section-icon bg-indigo">📱</div>
+    <div>
+      <h2>How to Access the System</h2>
+      <p>Device compatibility and navigation</p>
+    </div>
+  </div>
+
+  <div class="cards-grid" style="grid-template-columns: repeat(3, 1fr);">
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-blue">💻</div>
+        <div><h3>Desktop / Laptop</h3></div>
+      </div>
+      <p>Full sidebar navigation on the left side. All pages are accessible from the sidebar menu. Best for detailed work and account reviews.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-green">📱</div>
+        <div><h3>Mobile Phone</h3></div>
+      </div>
+      <p>Optimized mobile layout with a bottom navigation bar. A floating "+" button for quick New Rental and Return actions without navigating menus.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon bg-amber">🌐</div>
+        <div><h3>Web Browser</h3></div>
+      </div>
+      <p>No installation needed — runs in any modern browser (Chrome, Safari, Edge). Staff log in with their email and password to reach their assigned outlet.</p>
+    </div>
+
+  </div>
+
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div>Jewels — Jewelry Rental Management System</div>
+    <div>Confidential — Client Overview Document &nbsp;·&nbsp; May 2026</div>
+  </div>
+
+</div><!-- /page-body -->
+</body>
+</html>

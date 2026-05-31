@@ -1,31 +1,37 @@
 import { create } from 'zustand'
-import type { Customer, Ornament, PaymentMethod, WizardItem } from '@rental/types'
+import type { Customer, Ornament, PaymentMethod, PaymentPlan, WizardItem } from '@rental/types'
 import { formatDateInput } from '@/lib/formatters'
 
+type WizardStep = 1 | 2 | 3 | 4 | 5
+
 interface RentalWizardState {
-  step: 1 | 2 | 3 | 4
+  step: WizardStep
+  startDate: string
+  dueDate: string
+  selectedItems: WizardItem[]
   customer: Customer | null
   isNewCustomer: boolean
   newCustomerData: { name: string; phone: string; address: string }
-  selectedItems: WizardItem[]
-  startDate: string
-  dueDate: string
   depositAmount: number
-  depositMethod: PaymentMethod
+  paymentPlan: PaymentPlan
+  paymentMethod: PaymentMethod
   notes: string
 
   totalDays: () => number
   totalAmount: () => number
+  bookingPaymentToday: () => number
 
-  setStep: (step: 1 | 2 | 3 | 4) => void
-  setCustomer: (customer: Customer | null) => void
-  setIsNewCustomer: (v: boolean) => void
-  setNewCustomerData: (data: Partial<{ name: string; phone: string; address: string }>) => void
+  setStep: (step: WizardStep) => void
+  setDates: (startDate: string, dueDate: string) => void
   addItem: (ornament: Ornament, ratePerDay: number) => void
   removeItem: (ornamentId: string) => void
   updateItemRate: (ornamentId: string, rate: number) => void
-  setDates: (startDate: string, dueDate: string) => void
-  setDeposit: (amount: number, method: PaymentMethod) => void
+  setCustomer: (customer: Customer | null) => void
+  setIsNewCustomer: (v: boolean) => void
+  setNewCustomerData: (data: Partial<{ name: string; phone: string; address: string }>) => void
+  setDeposit: (amount: number) => void
+  setPaymentPlan: (plan: PaymentPlan) => void
+  setPaymentMethod: (method: PaymentMethod) => void
   setNotes: (notes: string) => void
   reset: () => void
 }
@@ -34,16 +40,30 @@ const today = formatDateInput(new Date())
 const tomorrow = formatDateInput(new Date(Date.now() + 86400000))
 
 const initial = {
-  step: 1 as const,
+  step: 1 as WizardStep,
+  startDate: today,
+  dueDate: tomorrow,
+  selectedItems: [] as WizardItem[],
   customer: null,
   isNewCustomer: false,
   newCustomerData: { name: '', phone: '', address: '' },
-  selectedItems: [] as WizardItem[],
-  startDate: today,
-  dueDate: tomorrow,
   depositAmount: 0,
-  depositMethod: 'CASH' as PaymentMethod,
+  paymentPlan: 'HALF_ADVANCE' as PaymentPlan,
+  paymentMethod: 'CASH' as PaymentMethod,
   notes: '',
+}
+
+function bookingAmount(plan: PaymentPlan, total: number, deposit: number): number {
+  switch (plan) {
+    case 'HALF_ADVANCE':
+      return Math.round(total / 2)
+    case 'FULL_RENT_DEFER_DEPOSIT':
+      return total
+    case 'FULL_UPFRONT':
+      return total + deposit
+    default:
+      return total
+  }
 }
 
 export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
@@ -63,7 +83,13 @@ export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
     return selectedItems.reduce((sum, item) => sum + item.ratePerDay * days, 0)
   },
 
+  bookingPaymentToday: () => {
+    const { paymentPlan, depositAmount } = get()
+    return bookingAmount(paymentPlan, get().totalAmount(), depositAmount)
+  },
+
   setStep: (step) => set({ step }),
+  setDates: (startDate, dueDate) => set({ startDate, dueDate, selectedItems: [] }),
   setCustomer: (customer) => set({ customer }),
   setIsNewCustomer: (v) => set({ isNewCustomer: v }),
   setNewCustomerData: (data) =>
@@ -85,8 +111,14 @@ export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
       ),
     })),
 
-  setDates: (startDate, dueDate) => set({ startDate, dueDate }),
-  setDeposit: (amount, method) => set({ depositAmount: amount, depositMethod: method }),
+  setDeposit: (amount) => set({ depositAmount: amount }),
+  setPaymentPlan: (plan) => set({ paymentPlan: plan }),
+  setPaymentMethod: (method) => set({ paymentMethod: method }),
   setNotes: (notes) => set({ notes }),
-  reset: () => set({ ...initial, startDate: formatDateInput(new Date()), dueDate: formatDateInput(new Date(Date.now() + 86400000)) }),
+  reset: () =>
+    set({
+      ...initial,
+      startDate: formatDateInput(new Date()),
+      dueDate: formatDateInput(new Date(Date.now() + 86400000)),
+    }),
 }))
