@@ -17,13 +17,21 @@ const dmSerif = DM_Serif_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Jewelry Rental Manager',
+  title: 'Jewels RMS',
   description: 'Manage jewelry rentals, inventory, and payments',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon_io/favicon.ico' },
+      { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon_io/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/favicon_io/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Jewels',
+    title: 'Jewels RMS',
   },
 }
 
