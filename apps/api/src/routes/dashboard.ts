@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response) => {
     overdueRentals,
     pickupsTodayList,
   ] = await Promise.all([
-    prisma.rental.count({ where: { outletId, status: { in: ['ACTIVE', 'EXTENDED'] } } }),
+    prisma.rental.count({ where: { outletId, status: { in: [...ACTIVE_STATUSES] } } }),
     prisma.rental.count({ where: { outletId, status: 'OVERDUE' } }),
     prisma.rental.count({ where: { outletId, status: 'BOOKED' } }),
     prisma.rental.count({
