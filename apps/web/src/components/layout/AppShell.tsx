@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto pb-32 md:pb-0">
+      <main className="flex-1 overflow-y-auto pb-32 md:pb-24">
         {children}
       </main>
 
@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* FAB with dropdown — sits at same level as BottomNav, to its right */}
       {!hideFab && (
-        <div ref={fabRef} className="fixed bottom-5 right-4 z-50 md:hidden flex flex-col items-end gap-2">
+        <div ref={fabRef} className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2">
           {fabOpen && (
             <div className="flex flex-col items-end gap-2 mb-1">
               <button

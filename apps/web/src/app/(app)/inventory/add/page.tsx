@@ -83,7 +83,7 @@ export default function AddOrnamentPage() {
     return (
       <div>
         <PageHeader title="Add photos" back="/inventory" />
-        <div className="px-4 md:px-6 max-w-lg space-y-4 pb-8">
+        <div className="px-4 md:px-6 max-w-2xl mx-auto space-y-4 pb-8">
           <p className="text-sm text-muted">
             Add at least one photo so staff can identify this ornament when booking.
           </p>
@@ -109,7 +109,7 @@ export default function AddOrnamentPage() {
     <div>
       <PageHeader title="Add Ornament" back="/inventory" />
 
-      <form onSubmit={handleSubmit} className="px-4 md:px-6 max-w-lg space-y-4 pb-8">
+      <form onSubmit={handleSubmit} className="px-4 md:px-6 max-w-2xl mx-auto space-y-4 pb-8">
         <div className="space-y-1.5">
           <Label>Name *</Label>
           <Input

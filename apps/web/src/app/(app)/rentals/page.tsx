@@ -170,7 +170,7 @@ export default function RentalsPage() {
       />
 
       <div className="px-5 md:px-6 mb-4">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none lg:flex-wrap lg:overflow-visible">
           {TABS.map(({ key, label }) => (
             <button
               key={key}
@@ -216,7 +216,8 @@ export default function RentalsPage() {
           }
         />
       ) : (
-        <div className="px-5 md:px-6 space-y-2">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {data?.data.map((rental) => (
             <Link key={rental.id} href={`/rentals/${rental.id}`}>
               <div
@@ -245,9 +246,10 @@ export default function RentalsPage() {
               </div>
             </Link>
           ))}
+          </div>
 
           {data && data.data.length < data.total && (
-            <div className="pt-2 flex justify-center">
+            <div className="pt-4 flex justify-center">
               <Button
                 variant="outline"
                 size="sm"

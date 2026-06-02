@@ -234,7 +234,7 @@ export default function OutletMasterPage() {
         }
       />
 
-      <div className="px-4 md:px-6 max-w-lg space-y-3 pb-8">
+      <div className="px-4 md:px-6 max-w-3xl mx-auto space-y-3 pb-8">
         {/* Add outlet form */}
         {showAdd && (
           <div className="bg-card border border-border rounded-2xl p-4 space-y-3">

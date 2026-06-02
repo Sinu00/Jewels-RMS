@@ -43,7 +43,7 @@ export default function CustomerDetailPage() {
         }
       />
 
-      <div className="px-5 md:px-6 max-w-lg space-y-4 pb-8">
+      <div className="px-5 md:px-6 max-w-2xl mx-auto space-y-4 pb-8">
         {/* Info card */}
         <div className="bg-card border border-border rounded-2xl p-4 text-sm">
           <div className="flex items-center justify-between">

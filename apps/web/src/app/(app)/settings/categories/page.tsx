@@ -47,7 +47,7 @@ export default function CategoriesPage() {
     <div>
       <PageHeader title="Ornament Categories" back="/settings" />
 
-      <div className="px-4 md:px-6 max-w-lg pb-8">
+      <div className="px-4 md:px-6 max-w-3xl mx-auto pb-8">
         <p className="text-sm text-muted mb-5">
           These categories appear in the add ornament dropdown. Changes apply to all new ornaments.
         </p>

@@ -60,6 +60,7 @@ export default function CustomersPage() {
         title="Customers"
         subtitle={data ? `${data.total} total` : undefined}
         back="/dashboard"
+        backMobileOnly
         action={
           <Button size="sm" onClick={() => setShowAdd(true)}>
             <Plus className="h-4 w-4" />Add
@@ -81,7 +82,7 @@ export default function CustomersPage() {
       ) : data?.data.length === 0 ? (
         <EmptyState icon={Users} title="No customers found" action={<Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Customer</Button>} />
       ) : (
-        <div className="px-4 md:px-6 space-y-2">
+        <div className="px-4 md:px-6 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {data?.data.map((c) => (
             <Link key={c.id} href={`/customers/${c.id}`}>
               <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between hover:shadow-sm transition-shadow">
@@ -104,7 +105,7 @@ export default function CustomersPage() {
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowAdd(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Add Customer</h3>
             <div className="space-y-1.5">
               <Label>Full Name *</Label>

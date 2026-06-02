@@ -50,7 +50,7 @@ export default function NotificationsPage() {
     <div>
       <PageHeader title="Notifications" back="/dashboard" />
 
-      <div className="px-5 md:px-6 pb-8 space-y-8">
+      <div className="px-5 md:px-6 pb-8 space-y-8 max-w-6xl mx-auto">
         {isLoading ? (
           <LoadingSpinner />
         ) : (
@@ -63,7 +63,7 @@ export default function NotificationsPage() {
               {pickupTomorrow.length === 0 ? (
                 <p className="text-sm text-muted">No pickups scheduled for tomorrow</p>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                   {pickupTomorrow.map((r: any) => (
                     <Link key={r.id} href={`/rentals/${r.id}`}>
                       <div className="bg-card border border-border rounded-2xl px-4 py-3.5 hover:border-ink transition-colors">
@@ -84,7 +84,7 @@ export default function NotificationsPage() {
               {dueTomorrow.length === 0 ? (
                 <p className="text-sm text-muted">No returns due tomorrow</p>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                   {dueTomorrow.map((r: any) => (
                     <Link key={r.id} href={`/rentals/${r.id}`}>
                       <div className="bg-card border border-border rounded-2xl px-4 py-3.5 hover:border-ink transition-colors">

@@ -81,7 +81,7 @@ export default function GenericPickupPage() {
     <div>
       <PageHeader title="Complete Pickup" back="/dashboard" />
 
-      <div className="px-5 md:px-6 max-w-lg pb-8">
+      <div className="px-5 md:px-6 max-w-2xl mx-auto pb-8">
         {!selectedId ? (
           <>
             <p className="text-sm text-muted mb-4">Search by customer name or rental number, or pick from today&apos;s scheduled pickups below.</p>

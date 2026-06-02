@@ -35,12 +35,12 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" back="/dashboard" />
+      <PageHeader title="Settings" back="/dashboard" backMobileOnly />
 
-      <div className="px-4 md:px-6 max-w-lg pb-8">
+      <div className="px-4 md:px-6 max-w-3xl mx-auto pb-8">
         <section>
           <h2 className="font-semibold text-ink mb-3">Master Data</h2>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {masterItems.map(({ href, icon: Icon, label, description }) => (
               <Link key={href} href={href}>
                 <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3.5 hover:border-ink transition-colors">

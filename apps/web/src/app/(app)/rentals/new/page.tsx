@@ -28,7 +28,7 @@ export default function NewRentalPage() {
 
       <WizardProgress step={step} />
 
-      <div className="px-4 md:px-6 pb-8 max-w-lg">
+      <div className="px-4 md:px-6 pb-8 max-w-2xl mx-auto">
         {step === 1 && <Step1Dates />}
         {step === 2 && <Step2Ornaments />}
         {step === 3 && <Step3Customer />}

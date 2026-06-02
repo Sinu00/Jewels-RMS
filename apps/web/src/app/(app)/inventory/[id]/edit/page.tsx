@@ -1,10 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
@@ -63,10 +61,7 @@ export default function EditOrnamentPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Edit Ornament"
-        action={<Link href={`/inventory/${id}`}><Button variant="ghost" size="sm"><ChevronLeft className="h-4 w-4" />Back</Button></Link>}
-      />
+      <PageHeader title="Edit Ornament" back={`/inventory/${id}`} />
       <form onSubmit={handleSubmit} className="px-4 md:px-6 max-w-lg space-y-4 pb-8">
         <div className="space-y-1.5">
           <Label>Photos</Label>

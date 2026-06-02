@@ -61,7 +61,7 @@ export default function ReturnPage() {
         back={`/rentals/${id}`}
       />
 
-      <div className="px-5 md:px-6 max-w-sm space-y-5 pb-8">
+      <div className="px-5 md:px-6 max-w-xl mx-auto space-y-5 pb-8">
 
         {/* Items being returned */}
         <div>

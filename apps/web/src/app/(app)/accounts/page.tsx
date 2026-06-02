@@ -98,7 +98,7 @@ export default function AccountsPage() {
 
       {/* Summary cards */}
       {tab === 'income' ? (
-        <div className="px-5 md:px-6 grid grid-cols-3 gap-3 mb-5">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           {[
             {
               label: 'Today',
@@ -119,7 +119,7 @@ export default function AccountsPage() {
           ))}
         </div>
       ) : (
-        <div className="px-5 md:px-6 grid grid-cols-3 gap-3 mb-5">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           {[
             { label: 'Collected', value: totalCollected },
             { label: 'Refunded', value: totalRefunded },
@@ -136,7 +136,7 @@ export default function AccountsPage() {
       )}
 
       {/* Filters — all 3 in one row */}
-      <div className="px-5 md:px-6 mb-5 flex gap-2">
+      <div className="px-5 md:px-6 mb-5 flex flex-col sm:flex-row gap-2 max-w-6xl mx-auto">
         <Select value={method} onChange={(e) => setMethod(e.target.value)} className="h-9 text-xs flex-1">
           <option value="">All methods</option>
           <option value="CASH">Cash</option>
@@ -150,10 +150,11 @@ export default function AccountsPage() {
       {isLoading ? (
         <SkeletonList rows={6} />
       ) : tab === 'income' ? (
-        <div className="px-5 md:px-6 space-y-2">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto">
           {incomePayments.length === 0 && (
             <EmptyState icon={Receipt} title="No income records found" description="Try adjusting the filters above." />
           )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {incomePayments.map((p: any) => (
             <div key={p.id} className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center justify-between text-sm">
               <div>
@@ -174,12 +175,14 @@ export default function AccountsPage() {
               </span>
             </div>
           ))}
+          </div>
         </div>
       ) : (
-        <div className="px-5 md:px-6 space-y-2">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto">
           {allDepositPayments.length === 0 && (
             <EmptyState icon={Receipt} title="No deposit records found" description="Try adjusting the filters above." />
           )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {allDepositPayments.map((p: any) => {
             const isRefund = p.type === 'DEPOSIT_REFUND'
             return (
@@ -205,6 +208,7 @@ export default function AccountsPage() {
               </div>
             )
           })}
+          </div>
         </div>
       )}
     </div>

@@ -103,7 +103,7 @@ export function Step2Ornaments() {
       </div>
 
       {/* Available ornaments grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto">
         {isLoading && <p className="text-sm text-muted col-span-full py-4 text-center">Loading…</p>}
         {data?.data.length === 0 && !isLoading && (
           <p className="text-sm text-muted col-span-full py-4 text-center">No ornaments found</p>

@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const accountsTodayHref = `/accounts?from=${todayStr}&to=${todayStr}`
 
   return (
-    <div className="max-w-2xl px-5 py-8 md:px-6">
+    <div className="max-w-6xl mx-auto px-5 py-8 md:px-6">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
@@ -88,7 +88,7 @@ export default function DashboardPage() {
             </button>
           </Link>
           {isAdmin() && (
-            <Link href="/settings">
+            <Link href="/settings" className="md:hidden">
               <button className="h-9 w-9 rounded-full bg-surface border border-border flex items-center justify-center text-muted hover:text-ink hover:bg-border transition-colors" title="Settings">
                 <Settings className="h-4 w-4" />
               </button>
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           )}
           <button
             onClick={clearAuth}
-            className="h-9 w-9 rounded-full bg-surface border border-border flex items-center justify-center text-muted hover:text-ink hover:bg-border transition-colors"
+            className="h-9 w-9 rounded-full bg-surface border border-border flex items-center justify-center text-muted hover:text-ink hover:bg-border transition-colors md:hidden"
             title="Sign out"
           >
             <LogOut className="h-4 w-4" />
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat strip */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
         <StatCell label="Out on rent" value={active} href="/rentals?view=out" />
         <StatCell
           label="Total bookings"
@@ -132,8 +132,9 @@ export default function DashboardPage() {
         />
       </div>
 
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start lg:mb-8">
       {(stats?.pickupsList?.length ?? 0) > 0 && (
-        <section className="mb-8">
+        <section className="mb-8 lg:mb-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-ink">Pickups today</h2>
             <Link href="/rentals?view=pickups-today">
@@ -162,7 +163,7 @@ export default function DashboardPage() {
 
       {/* Overdue */}
       {overdue > 0 && (
-        <section className="mb-8">
+        <section className="mb-8 lg:mb-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="status-dot status-dot--overdue" />
@@ -227,11 +228,12 @@ export default function DashboardPage() {
       )}
 
       {overdue === 0 && active > 0 && (
-        <div className="mb-8 flex items-center gap-2 text-sm text-muted bg-card rounded-2xl border border-border px-4 py-3">
+        <div className="mb-8 lg:mb-0 flex items-center gap-2 text-sm text-muted bg-card rounded-2xl border border-border px-4 py-3">
           <span className="status-dot status-dot--available" />
           All caught up — no overdue rentals
         </div>
       )}
+      </div>
 
 
       {/* Due for return carousel */}
@@ -307,7 +309,7 @@ function StatCell({
 
 function DashboardSkeleton({ outletName }: { outletName?: string }) {
   return (
-    <div className="max-w-2xl px-5 py-8 md:px-6">
+    <div className="max-w-6xl mx-auto px-5 py-8 md:px-6">
       <div className="flex items-start justify-between mb-8">
         <div>
           <p className="text-sm text-muted font-medium mb-1">Good day</p>
@@ -317,7 +319,7 @@ function DashboardSkeleton({ outletName }: { outletName?: string }) {
         </div>
         <Skeleton className="h-9 w-9 rounded-full" />
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="rounded-2xl border border-border bg-card px-4 py-4 space-y-3">
             <Skeleton className="h-3 w-20" />

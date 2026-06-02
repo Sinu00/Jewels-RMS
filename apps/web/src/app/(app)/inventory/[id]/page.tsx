@@ -61,7 +61,7 @@ export default function OrnamentDetailPage() {
         }
       />
 
-      <div className="px-4 md:px-6 max-w-2xl space-y-5 pb-8">
+      <div className="px-4 md:px-6 max-w-2xl mx-auto space-y-5 pb-8">
         {/* Photo gallery */}
         <div className="relative aspect-square rounded-2xl overflow-hidden bg-bg max-w-sm">
           {photo ? (

@@ -61,14 +61,16 @@ export default function InventoryPage() {
       />
 
       {/* Filters */}
-      <div className="px-5 md:px-6 flex flex-col gap-3 mb-6">
-        <SearchInput
-          placeholder="Search by name or item code…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onClear={search ? () => setSearch('') : undefined}
-        />
-        <div className="flex gap-2">
+      <div className="px-5 md:px-6 flex flex-col md:flex-row md:items-center gap-3 mb-6">
+        <div className="md:flex-1">
+          <SearchInput
+            placeholder="Search by name or item code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onClear={search ? () => setSearch('') : undefined}
+          />
+        </div>
+        <div className="flex gap-2 md:w-56">
           <Select value={category} onChange={(e) => setCategory(e.target.value)} className="flex-1">
             <option value="">All categories</option>
             {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -94,7 +96,7 @@ export default function InventoryPage() {
         />
       ) : (
         <>
-          <div className="px-5 md:px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="px-5 md:px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {data?.data.map((ornament) => (
               <OrnamentCard key={ornament.id} ornament={ornament} />
             ))}

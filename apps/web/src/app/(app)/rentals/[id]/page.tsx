@@ -163,7 +163,7 @@ export default function RentalDetailPage() {
         }
       />
 
-      <div className="px-5 md:px-6 max-w-2xl space-y-4 pb-32 md:pb-8">
+      <div className="px-5 md:px-6 max-w-2xl mx-auto space-y-4 pb-32 md:pb-8">
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -368,7 +368,7 @@ export default function RentalDetailPage() {
       {showPickup && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowPickup(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Complete pickup</h3>
             {(rental.amountDueOnPickup ?? 0) > 0 ? (
               <>
@@ -405,7 +405,7 @@ export default function RentalDetailPage() {
       {showReschedule && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowReschedule(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Change booking dates</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -461,7 +461,7 @@ export default function RentalDetailPage() {
       {showExtend && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowExtend(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Extend Rental</h3>
             <div className="space-y-1.5">
               <Label>New Due Date</Label>
