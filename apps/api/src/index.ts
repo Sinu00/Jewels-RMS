@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import compression from 'compression'
 import path from 'path'
 import fs from 'fs'
 import routes from './routes'
@@ -13,10 +15,24 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads'
 // Ensure upload directory exists
 fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 
+// Behind a reverse proxy (Caddy) — trust X-Forwarded-* so rate limiting and
+// protocol detection use the real client IP, not the proxy's.
+app.set('trust proxy', 1)
+
+// Security headers. crossOriginResourcePolicy is relaxed so the Next image
+// optimizer can fetch /uploads images cross-origin.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
+app.use(compression())
+
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',')
 app.use(cors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Liveness/health probe for uptime monitoring and the reverse proxy
+app.get('/api/v1/health', (_req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() })
+})
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.resolve(UPLOAD_DIR)))

@@ -17,10 +17,17 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
+      // Dev: API serves /uploads directly on :3001
       {
         protocol: 'http',
         hostname: 'localhost',
         port: '3001',
+        pathname: '/uploads/**',
+      },
+      // Prod: Caddy serves /uploads under the public domain (BASE_URL)
+      {
+        protocol: 'https',
+        hostname: 'jewels.rivaazbridal.in',
         pathname: '/uploads/**',
       },
     ],

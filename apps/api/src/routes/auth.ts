@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma'
 import { signToken } from '../lib/jwt'
@@ -6,7 +7,16 @@ import { requireAuth, AuthRequest } from '../middleware/auth'
 
 const router = Router()
 
-router.post('/login', async (req: Request, res: Response) => {
+// Throttle login attempts to slow credential brute-forcing.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again later.' },
+})
+
+router.post('/login', loginLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password required' })
