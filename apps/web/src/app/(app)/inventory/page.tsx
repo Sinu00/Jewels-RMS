@@ -11,6 +11,7 @@ import { OrnamentCard } from '@/components/shared/OrnamentCard'
 import { SkeletonGrid } from '@/components/shared/Skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SearchInput } from '@/components/shared/SearchInput'
+import { InventoryExportMenu } from '@/components/shared/InventoryExportMenu'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -51,12 +52,15 @@ export default function InventoryPage() {
         title="Inventory"
         subtitle={data ? `${data.total} ornament${data.total !== 1 ? 's' : ''}` : undefined}
         action={
-          <Link href="/inventory/add">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Add
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <InventoryExportMenu />
+            <Link href="/inventory/add">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
+            </Link>
+          </div>
         }
       />
 

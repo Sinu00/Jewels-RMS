@@ -7,7 +7,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth'
 import { requireAdmin } from '../middleware/requireAdmin'
 import { uploadImages } from '../middleware/upload'
 import { generateItemCode } from '../utils/itemCode'
-import { BLOCKING_STATUSES, rentalDateOverlapFilter } from '../utils/availability'
+import { ACTIVE_STATUSES, BLOCKING_STATUSES, rentalDateOverlapFilter } from '../utils/availability'
 
 const router = Router()
 router.use(requireAuth)
@@ -64,6 +64,79 @@ router.get('/categories', async (req: Request, res: Response) => {
     orderBy: { category: 'asc' },
   })
   res.json(cats.map((c) => c.category))
+})
+
+// GET /ornaments/export — full dataset for PDF reports (no pagination, no images).
+// mode "full" (default): every item with its current availability status.
+// mode "available" + startDate/dueDate: only items free across that date range.
+router.get('/export', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const { available, startDate, dueDate, category, search } =
+    req.query as Record<string, string>
+
+  const where: any = { outletId, isDeleted: false }
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { itemCode: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+  if (category) where.category = category
+
+  const availableMode = available === 'true' && !!startDate && !!dueDate
+  let rangeStart: Date | null = null
+  let rangeEnd: Date | null = null
+  if (availableMode) {
+    rangeStart = new Date(startDate)
+    rangeEnd = new Date(dueDate)
+    where.rentalItems = { none: { rental: rentalDateOverlapFilter(rangeStart, rangeEnd) } }
+  }
+
+  const ornaments = await prisma.ornament.findMany({
+    where,
+    include: {
+      rentalItems: {
+        where: { rental: { status: { in: [...BLOCKING_STATUSES] } } },
+        include: {
+          rental: { select: { status: true, startDate: true, dueDate: true } },
+        },
+      },
+    },
+    orderBy: [{ category: 'asc' }, { itemCode: 'asc' }],
+  })
+
+  const data = ornaments.map((o) => {
+    const activeItem = o.rentalItems.find((ri) =>
+      (ACTIVE_STATUSES as readonly string[]).includes(ri.rental.status)
+    )
+    const bookedItem = o.rentalItems.find((ri) => ri.rental.status === 'BOOKED')
+    let status = 'Available'
+    let statusDetail: string | null = null
+    if (activeItem) {
+      status = activeItem.rental.status === 'OVERDUE' ? 'Overdue' : 'Rented out'
+      statusDetail = activeItem.rental.dueDate.toISOString()
+    } else if (bookedItem) {
+      status = 'Booked'
+      statusDetail = bookedItem.rental.startDate.toISOString()
+    }
+    return {
+      itemCode: o.itemCode,
+      name: o.name,
+      category: o.category,
+      weightGrams: o.weightGrams ? Number(o.weightGrams) : null,
+      baseRatePerDay: Number(o.baseRatePerDay),
+      status,
+      statusDetail,
+    }
+  })
+
+  res.json({
+    data,
+    total: data.length,
+    mode: availableMode ? 'available' : 'full',
+    range: availableMode ? { startDate, dueDate } : null,
+    generatedAt: new Date().toISOString(),
+  })
 })
 
 // GET /ornaments

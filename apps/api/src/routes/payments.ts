@@ -103,6 +103,49 @@ router.get('/', async (req: Request, res: Response) => {
   })
 })
 
+// GET /payments/export — full filtered dataset for PDF reports (no pagination).
+router.get('/export', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const { type, method, from, to, incomeOnly } = req.query as Record<string, string>
+
+  const where: any = { outletId }
+  if (incomeOnly === 'true') {
+    where.type = { in: RENTAL_INCOME_TYPES }
+  } else if (type) {
+    where.type = type
+  }
+  if (method) where.method = method
+  if (from || to) {
+    where.createdAt = {}
+    if (from) where.createdAt.gte = new Date(from)
+    if (to) where.createdAt.lte = new Date(to)
+  }
+
+  const payments = await prisma.payment.findMany({
+    where,
+    include: {
+      recordedBy: { select: { id: true, name: true } },
+      rental: { select: { rentalNumber: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  res.json({
+    data: payments.map((p) => ({
+      id: p.id,
+      rentalNumber: p.rental?.rentalNumber ?? null,
+      type: p.type,
+      method: p.method,
+      amount: Number(p.amount),
+      note: p.note,
+      createdAt: p.createdAt,
+      recordedBy: { id: p.recordedBy.id, name: p.recordedBy.name },
+    })),
+    total: payments.length,
+    generatedAt: new Date().toISOString(),
+  })
+})
+
 // POST /payments
 router.post('/', async (req: Request, res: Response) => {
   const { outletId, id: userId } = (req as AuthRequest).user

@@ -11,6 +11,7 @@ import { formatINR, formatDate } from '@/lib/formatters'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { SkeletonList } from '@/components/shared/Skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { AccountsExportButton } from '@/components/shared/AccountsExportButton'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -77,7 +78,10 @@ export default function AccountsPage() {
 
   return (
     <div>
-      <PageHeader title="Accounts" />
+      <PageHeader
+        title="Accounts"
+        action={<AccountsExportButton />}
+      />
 
       {/* Tab bar */}
       <div className="px-5 md:px-6 mb-5">
