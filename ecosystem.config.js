@@ -15,8 +15,11 @@ module.exports = {
     {
       name: 'rms-web',
       cwd: './apps/web',
+      // next's launcher is a shell shim, not a JS file — run it directly
+      // instead of letting PM2 load it with the Node interpreter.
       script: 'node_modules/.bin/next',
       args: 'start -p 3000',
+      interpreter: 'none',
       env: { NODE_ENV: 'production' },
       max_memory_restart: '400M',
       time: true,
