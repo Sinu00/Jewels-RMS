@@ -5,16 +5,27 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/authStore'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore()
+  const { token, hasHydrated } = useAuthStore()
   const router = useRouter()
 
   useEffect(() => {
-    if (!token) {
+    // Only redirect once the persisted auth has been read from localStorage,
+    // otherwise a page refresh briefly sees token=null and bounces to /login.
+    if (hasHydrated && !token) {
       router.replace('/login')
     }
-  }, [token, router])
+  }, [hasHydrated, token, router])
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-bg">
+        <LoadingSpinner />
+      </div>
+    )
+  }
 
   if (!token) return null
 

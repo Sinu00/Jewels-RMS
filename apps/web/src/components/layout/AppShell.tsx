@@ -14,7 +14,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [fabOpen, setFabOpen] = useState(false)
   const fabRef = useRef<HTMLDivElement>(null)
 
-  const hideFab = pathname === '/rentals/new' || pathname === '/rentals/return' || pathname === '/rentals/pickup'
+  // Full-screen task flows have their own Cancel/Back header — hide the tab bar
+  // and FAB so the in-flow action buttons aren't covered by the floating nav.
+  const fullScreenFlow =
+    pathname === '/rentals/new' || pathname === '/rentals/return' || pathname === '/rentals/pickup'
+  const hideFab = fullScreenFlow
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -38,8 +42,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Floating pill bottom nav */}
-      <BottomNav />
+      {/* Floating pill bottom nav (hidden during full-screen flows) */}
+      {!fullScreenFlow && <BottomNav />}
 
       {/* FAB with dropdown — sits at same level as BottomNav, to its right */}
       {!hideFab && (

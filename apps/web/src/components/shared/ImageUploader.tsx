@@ -25,9 +25,9 @@ export function ImageUploader({ ornamentId, images, onImagesChange, maxImages = 
       const formData = new FormData()
       const toUpload = Array.from(files).slice(0, maxImages - images.length)
       toUpload.forEach((f) => formData.append('images', f))
-      const { data } = await api.post(`/ornaments/${ornamentId}/images`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Let axios set `multipart/form-data; boundary=…` itself — passing the
+      // header manually drops the boundary and breaks the upload.
+      const { data } = await api.post(`/ornaments/${ornamentId}/images`, formData)
       onImagesChange([...images, ...data])
     } finally {
       setUploading(false)
