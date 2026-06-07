@@ -92,6 +92,7 @@ export interface RentalExtension {
   rentalId: string
   previousDueDate: string
   newDueDate: string
+  amount: number | null
   reason: string | null
   createdAt: string
 }

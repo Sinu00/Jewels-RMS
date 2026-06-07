@@ -32,6 +32,12 @@ function daysBetween(start: string, end: string): number {
   return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)))
 }
 
+function addDaysTo(dateStr: string, n: number): Date {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
 export default function RentalDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
@@ -40,8 +46,11 @@ export default function RentalDetailPage() {
   const [showReschedule, setShowReschedule] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [pickupMethod, setPickupMethod] = useState<PaymentMethod>('CASH')
-  const [newDueDate, setNewDueDate] = useState('')
   const [reason, setReason] = useState('')
+  const [extendDays, setExtendDays] = useState('1')
+  const [extendRate, setExtendRate] = useState('')
+  const [extendPaid, setExtendPaid] = useState(true)
+  const [extendMethod, setExtendMethod] = useState<PaymentMethod>('CASH')
   const [newStart, setNewStart] = useState('')
   const [newDue, setNewDue] = useState('')
   const [newTotal, setNewTotal] = useState('')
@@ -53,10 +62,22 @@ export default function RentalDetailPage() {
   })
 
   const extendMutation = useMutation({
-    mutationFn: () => api.post(`/rentals/${id}/extend`, { newDueDate, reason }),
+    mutationFn: () => {
+      const d = Math.max(1, parseInt(extendDays) || 1)
+      const rate = Number(extendRate) || 0
+      return api.post(`/rentals/${id}/extend`, {
+        extraDays: d,
+        amount: d * rate,
+        markPaid: extendPaid,
+        method: extendMethod,
+        reason,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: keys.payments() })
       setShowExtend(false)
       toast.success('Rental extended')
     },
@@ -144,6 +165,20 @@ export default function RentalDetailPage() {
   }
 
   const rescheduleDays = daysBetween(newStart, newDue)
+
+  function openExtend() {
+    setExtendDays('1')
+    setExtendRate(String(ratePerDayTotal))
+    setExtendPaid(true)
+    setExtendMethod('CASH')
+    setReason('')
+    setShowExtend(true)
+  }
+
+  // Live preview values for the extend modal.
+  const extDays = Math.max(1, parseInt(extendDays) || 1)
+  const extRate = Number(extendRate) || 0
+  const extAmount = extDays * extRate
 
   return (
     <div>
@@ -295,7 +330,7 @@ export default function RentalDetailPage() {
             )}
             {isOut && (
               <>
-                <Button variant="outline" className="flex-1" onClick={() => setShowExtend(true)}>
+                <Button variant="outline" className="flex-1" onClick={openExtend}>
                   <Calendar className="h-4 w-4" />
                   Extend
                 </Button>
@@ -319,6 +354,9 @@ export default function RentalDetailPage() {
                   className="text-sm text-muted bg-card border border-border rounded-xl px-4 py-3 border-l-2 border-l-border"
                 >
                   {formatDate(ext.previousDueDate)} → {formatDate(ext.newDueDate)}
+                  {ext.amount != null && ext.amount > 0 && (
+                    <span className="text-ink font-medium"> · {formatINR(ext.amount)}</span>
+                  )}
                   {ext.reason && <span className="text-muted"> · {ext.reason}</span>}
                 </div>
               ))}
@@ -461,28 +499,91 @@ export default function RentalDetailPage() {
       {showExtend && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowExtend(false)} />
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             <h3 className="font-semibold">Extend Rental</h3>
+
+            <p className="text-sm text-muted">
+              Current return:{' '}
+              <span className="font-medium text-ink">{formatDate(rental.dueDate)}</span>
+            </p>
+
             <div className="space-y-1.5">
-              <Label>New Due Date</Label>
+              <Label>Extra days</Label>
               <Input
-                type="date"
-                value={newDueDate}
-                min={rental.dueDate as string}
-                onChange={(e) => setNewDueDate(e.target.value)}
+                type="number"
+                min={1}
+                value={extendDays}
+                onChange={(e) => setExtendDays(e.target.value)}
               />
+              <p className="text-xs text-muted">
+                New return: {formatDate(addDaysTo(rental.dueDate, extDays))}
+              </p>
             </div>
+
+            <div className="space-y-1.5">
+              <Label>Price per day (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={extendRate}
+                onChange={(e) => setExtendRate(e.target.value)}
+              />
+              <p className="text-xs text-muted">Defaults to the items' daily rate — edit if needed.</p>
+            </div>
+
+            <div className="flex justify-between items-center rounded-xl bg-surface px-3 py-2.5">
+              <span className="text-sm text-muted">
+                Extra charge ({extDays} day{extDays !== 1 ? 's' : ''})
+              </span>
+              <span className="font-display font-semibold text-base">{formatINR(extAmount)}</span>
+            </div>
+            {(rental.rentalPaid ?? 0) > 0 && (
+              <p className="text-xs text-muted -mt-2">
+                Already paid on this rental: {formatINR(rental.rentalPaid ?? 0)}
+              </p>
+            )}
+
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={extendPaid}
+                onChange={(e) => setExtendPaid(e.target.checked)}
+                className="h-4 w-4 accent-ink"
+              />
+              Paid now
+            </label>
+            {extendPaid ? (
+              <div className="space-y-1.5">
+                <Label>Payment method</Label>
+                <Select
+                  value={extendMethod}
+                  onChange={(e) => setExtendMethod(e.target.value as PaymentMethod)}
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="BANK_TRANSFER">Bank Transfer</option>
+                </Select>
+              </div>
+            ) : (
+              extAmount > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  Added to the rental balance — collect at return.
+                </p>
+              )
+            )}
+
             <div className="space-y-1.5">
               <Label>Reason (optional)</Label>
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
+
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setShowExtend(false)}>
                 Cancel
               </Button>
               <Button
                 className="flex-1"
-                disabled={!newDueDate || extendMutation.isPending}
+                disabled={extDays < 1 || extendMutation.isPending}
                 onClick={() => extendMutation.mutate()}
               >
                 {extendMutation.isPending ? 'Saving...' : 'Extend'}

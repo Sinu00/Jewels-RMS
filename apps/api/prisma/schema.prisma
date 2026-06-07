@@ -167,6 +167,7 @@ model RentalExtension {
   rental          Rental   @relation(fields: [rentalId], references: [id])
   previousDueDate DateTime @db.Date
   newDueDate      DateTime @db.Date
+  amount          Decimal? @db.Decimal(10, 2)
   reason          String?
   createdAt       DateTime @default(now())
 

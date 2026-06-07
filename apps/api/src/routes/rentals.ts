@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { startOfDay } from 'date-fns'
+import { startOfDay, addDays } from 'date-fns'
 import { PaymentMethod, PaymentPlan } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
@@ -103,6 +103,7 @@ function mapRentalDetail(r: any): object {
       rentalId: e.rentalId,
       previousDueDate: e.previousDueDate,
       newDueDate: e.newDueDate,
+      amount: e.amount != null ? Number(e.amount) : null,
       reason: e.reason,
       createdAt: e.createdAt,
     })),
@@ -442,34 +443,84 @@ router.post('/:id/return', async (req: Request, res: Response) => {
 
 // POST /rentals/:id/extend
 router.post('/:id/extend', async (req: Request, res: Response) => {
-  const { outletId } = (req as AuthRequest).user
-  const { newDueDate, reason } = req.body
+  const { outletId, id: userId } = (req as AuthRequest).user
+  const { extraDays, amount, markPaid, method, reason } = req.body
 
-  if (!newDueDate) return res.status(400).json({ error: 'newDueDate required' })
+  const days = Number(extraDays)
+  if (!Number.isInteger(days) || days < 1) {
+    return res.status(400).json({ error: 'extraDays must be a whole number of at least 1' })
+  }
 
-  const rental = await prisma.rental.findFirst({ where: { id: req.params.id, outletId } })
+  const rental = await prisma.rental.findFirst({
+    where: { id: req.params.id, outletId },
+    include: { items: true },
+  })
   if (!rental) return res.status(404).json({ error: 'Not found' })
   if (rental.status === 'RETURNED' || rental.status === 'BOOKED' || rental.status === 'CANCELLED') {
     return res.status(400).json({ error: 'Cannot extend this rental' })
   }
 
+  const previousDueDate = rental.dueDate
+  const newDueDate = addDays(new Date(previousDueDate), days)
+
+  // The extension occupies the days AFTER the current due date — make sure no
+  // other rental has booked these items in that window (ignoring this rental).
+  const rangeStart = addDays(new Date(previousDueDate), 1)
+  const ornamentIds = rental.items.map((i) => i.ornamentId)
+  const conflicts = await getConflictingOrnamentIds(ornamentIds, rangeStart, newDueDate, rental.id)
+  if (conflicts.length > 0) {
+    return res.status(400).json({
+      error: 'One or more ornaments are already booked for the extension dates',
+      conflicts,
+    })
+  }
+
+  // Extra charge: caller-provided amount, else default to per-day rate × extra days.
+  const defaultAmount = rental.items.reduce((sum, i) => sum + Number(i.ratePerDay) * days, 0)
+  const extraAmount =
+    amount !== undefined && amount !== null && Number(amount) >= 0 ? Number(amount) : defaultAmount
+
+  const willRecordPayment = markPaid === true && extraAmount > 0
+  if (willRecordPayment && !['CASH', 'UPI', 'BANK_TRANSFER'].includes(method)) {
+    return res.status(400).json({ error: 'A valid payment method is required when marking as paid' })
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.rentalExtension.create({
       data: {
-        rentalId: req.params.id,
-        previousDueDate: rental.dueDate,
-        newDueDate: new Date(newDueDate),
+        rentalId: rental.id,
+        previousDueDate,
+        newDueDate,
+        amount: extraAmount,
         reason: reason ?? null,
       },
     })
     await tx.rental.update({
-      where: { id: req.params.id },
-      data: { dueDate: new Date(newDueDate), status: 'EXTENDED' },
+      where: { id: rental.id },
+      data: {
+        dueDate: newDueDate,
+        status: 'EXTENDED',
+        totalRentalAmount: Number(rental.totalRentalAmount) + extraAmount,
+      },
     })
+    // Paid-now extensions post straight to Accounts as rental income.
+    if (willRecordPayment) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: rental.id,
+          recordedById: userId,
+          type: 'RENTAL',
+          method: method as PaymentMethod,
+          amount: extraAmount,
+          note: `Extension +${days} day(s)`,
+        },
+      })
+    }
   })
 
   const updated = await prisma.rental.findUnique({
-    where: { id: req.params.id },
+    where: { id: rental.id },
     include: rentalDetailInclude,
   })
   res.json(mapRentalDetail(updated))
