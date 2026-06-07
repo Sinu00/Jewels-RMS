@@ -8,6 +8,7 @@ import { requireAdmin } from '../middleware/requireAdmin'
 import { uploadImages } from '../middleware/upload'
 import { generateItemCode } from '../utils/itemCode'
 import { ACTIVE_STATUSES, BLOCKING_STATUSES, rentalDateOverlapFilter } from '../utils/availability'
+import { isPositiveAmount, isNonNegativeAmount } from '../utils/validate'
 
 const router = Router()
 router.use(requireAuth)
@@ -226,6 +227,12 @@ router.post('/', async (req: Request, res: Response) => {
   if (!name || !category || !baseRatePerDay) {
     return res.status(400).json({ error: 'name, category, baseRatePerDay required' })
   }
+  if (!isPositiveAmount(baseRatePerDay)) {
+    return res.status(400).json({ error: 'baseRatePerDay must be a number greater than 0' })
+  }
+  if (weightGrams !== undefined && weightGrams !== null && !isNonNegativeAmount(weightGrams)) {
+    return res.status(400).json({ error: 'weightGrams must be 0 or more' })
+  }
 
   const ornament = await prisma.$transaction(async (tx) => {
     const itemCode = await generateItemCode(outletId, category, tx)
@@ -302,10 +309,17 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   })
   if (!existing) return res.status(404).json({ error: 'Not found' })
 
-  await prisma.ornament.update({
-    where: { id: req.params.id },
-    data: { isDeleted: true },
+  await prisma.$transaction(async (tx) => {
+    // The item is hidden from all listings, so its photos are dead weight — drop them.
+    await tx.ornamentImage.deleteMany({ where: { ornamentId: req.params.id } })
+    await tx.ornament.update({
+      where: { id: req.params.id },
+      data: { isDeleted: true },
+    })
   })
+  // Remove the photo files from disk too (best-effort).
+  fs.rmSync(path.join(UPLOAD_DIR(), 'ornaments', req.params.id), { recursive: true, force: true })
+
   res.json({ success: true })
 })
 

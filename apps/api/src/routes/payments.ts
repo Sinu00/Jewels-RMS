@@ -3,6 +3,7 @@ import { startOfDay, startOfWeek, startOfMonth } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { RENTAL_INCOME_TYPES } from '../utils/rentalPayments'
+import { PAYMENT_METHODS, PAYMENT_TYPES, isPositiveAmount } from '../utils/validate'
 
 const router = Router()
 router.use(requireAuth)
@@ -151,8 +152,17 @@ router.post('/', async (req: Request, res: Response) => {
   const { outletId, id: userId } = (req as AuthRequest).user
   const { rentalId, type, method, amount, note } = req.body
 
-  if (!type || !method || !amount) {
+  if (!type || !method || amount === undefined || amount === null) {
     return res.status(400).json({ error: 'type, method, amount required' })
+  }
+  if (!PAYMENT_TYPES.includes(type)) {
+    return res.status(400).json({ error: 'Invalid payment type' })
+  }
+  if (!PAYMENT_METHODS.includes(method)) {
+    return res.status(400).json({ error: 'Invalid payment method' })
+  }
+  if (!isPositiveAmount(amount)) {
+    return res.status(400).json({ error: 'amount must be a number greater than 0' })
   }
 
   // Verify rental belongs to outlet if provided

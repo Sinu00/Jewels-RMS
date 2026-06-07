@@ -8,6 +8,7 @@ import { ACTIVE_STATUSES, getConflictingOrnamentIds } from '../utils/availabilit
 import { dateOnlyRange } from '../utils/dateOnly'
 import { updateOverdueRentals } from '../utils/updateOverdueRentals'
 import { calculateRentalDays, calculateDaysOverdue } from '../utils/rentalCalc'
+import { PAYMENT_METHODS, isNonNegativeAmount } from '../utils/validate'
 import {
   bookingPaymentsToCreate,
   computePickupDue,
@@ -215,6 +216,15 @@ router.post('/', async (req: Request, res: Response) => {
   if (!validPlans.includes(paymentPlan)) {
     return res.status(400).json({ error: 'Invalid payment plan' })
   }
+  if (!PAYMENT_METHODS.includes(paymentMethod)) {
+    return res.status(400).json({ error: 'Invalid payment method' })
+  }
+  if (!isNonNegativeAmount(depositAmount)) {
+    return res.status(400).json({ error: 'depositAmount must be 0 or more' })
+  }
+  if (!items.every((i: any) => i?.ornamentId && isNonNegativeAmount(i.ratePerDay))) {
+    return res.status(400).json({ error: 'Each item needs an ornament and a valid daily rate' })
+  }
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, outletId, isDeleted: false },
@@ -406,15 +416,38 @@ router.post('/:id/return', async (req: Request, res: Response) => {
   const { method, note } = req.body
 
   if (!method) return res.status(400).json({ error: 'method required' })
+  if (!PAYMENT_METHODS.includes(method)) {
+    return res.status(400).json({ error: 'Invalid payment method' })
+  }
 
-  const rental = await prisma.rental.findFirst({ where: { id: req.params.id, outletId } })
+  const rental = await prisma.rental.findFirst({
+    where: { id: req.params.id, outletId },
+    include: { payments: true },
+  })
   if (!rental) return res.status(404).json({ error: 'Not found' })
   if (rental.status === 'RETURNED') return res.status(400).json({ error: 'Rental already returned' })
   if (rental.status === 'BOOKED' || rental.status === 'CANCELLED') {
     return res.status(400).json({ error: 'Cannot return a booking that has not been picked up' })
   }
 
+  // Any rent still owed (e.g. from an unpaid extension) must be collected here.
+  const rentalPaid = rentalPaidAmount(rental.payments)
+  const rentalDue = Math.max(0, Number(rental.totalRentalAmount) - rentalPaid)
+
   await prisma.$transaction(async (tx) => {
+    if (rentalDue > 0) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: req.params.id,
+          recordedById: userId,
+          type: 'RENTAL',
+          method,
+          amount: rentalDue,
+          note: 'Balance collected at return',
+        },
+      })
+    }
     await tx.rental.update({
       where: { id: req.params.id },
       data: { status: 'RETURNED', returnedAt: new Date(), depositRefunded: rental.depositCollected },
@@ -447,8 +480,8 @@ router.post('/:id/extend', async (req: Request, res: Response) => {
   const { extraDays, amount, markPaid, method, reason } = req.body
 
   const days = Number(extraDays)
-  if (!Number.isInteger(days) || days < 1) {
-    return res.status(400).json({ error: 'extraDays must be a whole number of at least 1' })
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    return res.status(400).json({ error: 'extraDays must be a whole number between 1 and 365' })
   }
 
   const rental = await prisma.rental.findFirst({

@@ -53,6 +53,8 @@ export default function ReturnPage() {
     )
   }
 
+  const balanceDue = rental.rentalDue ?? 0
+
   return (
     <div>
       <PageHeader
@@ -78,6 +80,17 @@ export default function ReturnPage() {
             ))}
           </div>
         </div>
+
+        {/* Outstanding rent balance to collect (e.g. from an unpaid extension) */}
+        {balanceDue > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Collect rent balance</p>
+              <p className="text-xs text-amber-800 mt-0.5">Unpaid rent / extension on this rental</p>
+            </div>
+            <span className="font-display font-semibold text-amber-900">{formatINR(balanceDue)}</span>
+          </div>
+        )}
 
         {/* Deposit refund — the dominant element */}
         <div className="rounded-2xl border-2 border-ink bg-surface p-6 text-center">
@@ -125,7 +138,9 @@ export default function ReturnPage() {
         >
           {mutation.isPending
             ? 'Processing…'
-            : `Confirm return · Refund ${formatINR(rental.depositAmount)}`}
+            : balanceDue > 0
+              ? `Collect ${formatINR(balanceDue)} · Refund ${formatINR(rental.depositAmount)}`
+              : `Confirm return · Refund ${formatINR(rental.depositAmount)}`}
         </Button>
       </div>
     </div>

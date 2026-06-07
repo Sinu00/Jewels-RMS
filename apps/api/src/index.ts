@@ -1,4 +1,8 @@
 import 'dotenv/config'
+// Run on the shop's clock so "today", overdue, and daily counts use IST day
+// boundaries instead of the server's UTC. Must be set before any Date is used.
+process.env.TZ = process.env.TZ ?? 'Asia/Kolkata'
+import 'express-async-errors' // route async errors reach errorHandler (no crash)
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -7,6 +11,14 @@ import path from 'path'
 import fs from 'fs'
 import routes from './routes'
 import { errorHandler } from './middleware/errorHandler'
+
+// Last-resort safety nets: log instead of letting a stray rejection kill the API.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err)
+})
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '3001')
