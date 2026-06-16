@@ -11,6 +11,12 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // For file uploads, drop the default JSON content-type so the browser sets
+  // `multipart/form-data; boundary=…` itself — otherwise the boundary is lost
+  // and the server can't parse the upload.
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
   return config
 })
 

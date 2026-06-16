@@ -36,6 +36,18 @@ app.set('trust proxy', 1)
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 app.use(compression())
 
+// Sanity check: catch the "production is still running dev config" class of bug
+// (a stale or wrong .env). Warn loudly instead of silently allowing localhost.
+if (process.env.NODE_ENV === 'production') {
+  const corsOrigin = process.env.CORS_ORIGIN ?? ''
+  if (!corsOrigin || corsOrigin.includes('localhost')) {
+    console.warn(
+      `[config] NODE_ENV=production but CORS_ORIGIN is "${corsOrigin || '(unset)'}" — ` +
+        'set it to the live domain in apps/api/.env, or the browser will be blocked.'
+    )
+  }
+}
+
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',')
 app.use(cors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins }))
 app.use(express.json())

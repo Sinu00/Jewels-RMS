@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Upload, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 import type { OrnamentImage } from '@rental/types'
 
 interface ImageUploaderProps {
@@ -14,21 +15,49 @@ interface ImageUploaderProps {
   maxImages?: number
 }
 
+// HEIC/HEIF (the iPhone default) can't be displayed by browsers, so we reject
+// it up front instead of storing a photo that shows up blank.
+function isHeic(file: File) {
+  const type = file.type.toLowerCase()
+  const name = file.name.toLowerCase()
+  return (
+    type === 'image/heic' ||
+    type === 'image/heif' ||
+    name.endsWith('.heic') ||
+    name.endsWith('.heif')
+  )
+}
+
 export function ImageUploader({ ornamentId, images, onImagesChange, maxImages = 5 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
 
   async function handleFiles(files: FileList) {
-    if (!files.length || images.length >= maxImages) return
+    if (!files.length) return
+    if (images.length >= maxImages) {
+      toast.error(`You can add up to ${maxImages} photos.`)
+      return
+    }
+    const picked = Array.from(files).slice(0, maxImages - images.length)
+    const usable = picked.filter((f) => !isHeic(f))
+    if (usable.length < picked.length) {
+      toast.error('HEIC images are not supported. Please use JPG, PNG, or WebP.')
+    }
+    if (!usable.length) return
+
     setUploading(true)
     try {
       const formData = new FormData()
-      const toUpload = Array.from(files).slice(0, maxImages - images.length)
-      toUpload.forEach((f) => formData.append('images', f))
+      usable.forEach((f) => formData.append('images', f))
       // Let axios set `multipart/form-data; boundary=…` itself — passing the
       // header manually drops the boundary and breaks the upload.
       const { data } = await api.post(`/ornaments/${ornamentId}/images`, formData)
       onImagesChange([...images, ...data])
+      toast.success(data.length > 1 ? `${data.length} photos added` : 'Photo added')
+    } catch (err: any) {
+      // Surface the reason as a toast instead of letting the rejection bubble
+      // up as an unhandled runtime error.
+      toast.error(err.response?.data?.error ?? 'Could not upload photo. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -73,12 +102,16 @@ export function ImageUploader({ ornamentId, images, onImagesChange, maxImages = 
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => e.target.files && handleFiles(e.target.files)}
+        onChange={(e) => {
+          if (e.target.files) handleFiles(e.target.files)
+          // Reset so picking the same file again re-triggers onChange.
+          e.target.value = ''
+        }}
       />
-      <p className="mt-1.5 text-xs text-muted">Up to {maxImages} photos, max 5MB each</p>
+      <p className="mt-1.5 text-xs text-muted">Up to {maxImages} photos</p>
     </div>
   )
 }

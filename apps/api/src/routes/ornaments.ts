@@ -13,11 +13,14 @@ import { isPositiveAmount, isNonNegativeAmount } from '../utils/validate'
 const router = Router()
 router.use(requireAuth)
 
-const BASE_URL = () => process.env.BASE_URL ?? 'http://localhost:3001'
 const UPLOAD_DIR = () => process.env.UPLOAD_DIR ?? './uploads'
 
+// Return a same-origin relative URL (e.g. /uploads/ornaments/<id>/<file>.jpg).
+// In dev, Next rewrites /uploads -> the API on :3001; in prod, Caddy routes
+// /uploads -> the API. Keeping it relative means the URL works in every
+// environment without a baked-in BASE_URL that drifts between dev and prod.
 function imageUrl(filePath: string) {
-  return `${BASE_URL()}/uploads/${filePath.replace(/\\/g, '/')}`
+  return `/uploads/${filePath.replace(/\\/g, '/')}`
 }
 
 function mapOrnament(o: any, activeItems: any[]) {
@@ -324,7 +327,7 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
 })
 
 // POST /ornaments/:id/images
-router.post('/:id/images', uploadImages.array('images', 5), async (req: Request, res: Response) => {
+router.post('/:id/images', uploadImages, async (req: Request, res: Response) => {
   const { outletId } = (req as AuthRequest).user
   const ornament = await prisma.ornament.findFirst({
     where: { id: req.params.id, outletId, isDeleted: false },

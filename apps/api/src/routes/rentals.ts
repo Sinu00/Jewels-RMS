@@ -62,7 +62,9 @@ function mapRentalDetail(r: any): object {
       category: item.ornament.category,
       images: item.ornament.images.map((img: any) => ({
         id: img.id,
-        url: `${process.env.BASE_URL ?? 'http://localhost:3001'}/uploads/${img.filePath}`,
+        // Same-origin relative URL (see imageUrl() in routes/ornaments.ts) so
+        // it resolves identically in dev and prod without a baked-in BASE_URL.
+        url: `/uploads/${String(img.filePath).replace(/\\/g, '/')}`,
         displayOrder: img.displayOrder,
       })),
     },
