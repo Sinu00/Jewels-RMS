@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -20,6 +21,10 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { toast } from '@/lib/toast'
 
+// Only picked-up rentals can be returned. Booked ones must be picked up first;
+// Returned/Cancelled are terminal.
+const RETURNABLE_STATUSES = ['ACTIVE', 'OVERDUE', 'EXTENDED']
+
 export default function GenericReturnPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -36,7 +41,10 @@ export default function GenericReturnPage() {
       const params = new URLSearchParams({ limit: '20' })
       if (debouncedSearch) params.set('search', debouncedSearch)
       const res = await api.get(`/rentals?${params}`)
-      return (res.data.data as any[]).filter((r: any) => r.status !== 'RETURNED')
+      // Hide terminal rentals; keep Booked so staff can see them (shown disabled).
+      return (res.data.data as any[]).filter(
+        (r: any) => r.status !== 'RETURNED' && r.status !== 'CANCELLED'
+      )
     },
     enabled: debouncedSearch.length >= 1,
   })
@@ -118,22 +126,46 @@ export default function GenericReturnPage() {
             )}
 
             <div className="space-y-2">
-              {searchResults?.map((r: any) => (
-                <button
-                  key={r.id}
-                  onClick={() => selectRental(r)}
-                  className="w-full text-left bg-card border border-border rounded-2xl px-4 py-3.5 hover:border-ink hover:bg-surface transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="item-code font-mono text-xs">{r.rentalNumber}</span>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <p className="font-medium text-ink">{r.customerName}</p>
-                  <p className="text-xs text-muted mt-0.5">
-                    Due {formatDate(r.dueDate)} · {r.itemsCount} item{r.itemsCount !== 1 ? 's' : ''}
-                  </p>
-                </button>
-              ))}
+              {searchResults?.map((r: any) => {
+                const returnable = RETURNABLE_STATUSES.includes(r.status)
+                if (!returnable) {
+                  // Booked: visible (so it's findable) but not selectable for return.
+                  return (
+                    <div
+                      key={r.id}
+                      className="w-full text-left bg-surface border border-border rounded-2xl px-4 py-3.5 opacity-70"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="item-code font-mono text-xs">{r.rentalNumber}</span>
+                        <StatusBadge status={r.status} />
+                      </div>
+                      <p className="font-medium text-ink">{r.customerName}</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Not picked up yet —{' '}
+                        <Link href={`/rentals/${r.id}`} className="underline font-medium">
+                          complete pickup first
+                        </Link>
+                      </p>
+                    </div>
+                  )
+                }
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => selectRental(r)}
+                    className="w-full text-left bg-card border border-border rounded-2xl px-4 py-3.5 hover:border-ink hover:bg-surface transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="item-code font-mono text-xs">{r.rentalNumber}</span>
+                      <StatusBadge status={r.status} />
+                    </div>
+                    <p className="font-medium text-ink">{r.customerName}</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      Due {formatDate(r.dueDate)} · {r.itemsCount} item{r.itemsCount !== 1 ? 's' : ''}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           </>
         ) : (
