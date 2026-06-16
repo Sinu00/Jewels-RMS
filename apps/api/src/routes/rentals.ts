@@ -33,6 +33,7 @@ function mapRentalSummary(r: any): object {
     dueDate: r.dueDate,
     itemsCount: r.items.length,
     depositAmount: Number(r.depositAmount),
+    depositCollected: r.depositCollected,
     totalRentalAmount,
     daysOverdue: calculateDaysOverdue(r.dueDate, r.status),
     createdAt: r.createdAt,

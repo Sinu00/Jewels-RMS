@@ -27,6 +27,7 @@ export default function GenericReturnPage() {
   const [selectedRental, setSelectedRental] = useState<any>(null)
   const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
+  const [returnedDeposit, setReturnedDeposit] = useState('')
   const [error, setError] = useState('')
 
   const { data: searchResults, isLoading: searching } = useQuery({
@@ -41,8 +42,18 @@ export default function GenericReturnPage() {
   })
 
   const returnMutation = useMutation({
-    mutationFn: async ({ id, method, note }: { id: string; method: string; note: string }) =>
-      (await api.post(`/rentals/${id}/return`, { method, note: note || undefined })).data,
+    mutationFn: async ({
+      id,
+      method,
+      note,
+      returnedDepositAmount,
+    }: {
+      id: string
+      method: string
+      note: string
+      returnedDepositAmount: number
+    }) =>
+      (await api.post(`/rentals/${id}/return`, { method, note: note || undefined, returnedDepositAmount })).data,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
       queryClient.invalidateQueries({ queryKey: keys.rental(data.id) })
@@ -58,10 +69,22 @@ export default function GenericReturnPage() {
     },
   })
 
-  function handleConfirm() {
-    if (!selectedRental) return
+  function selectRental(r: any) {
+    setSelectedRental(r)
+    setReturnedDeposit(String(Number(r.depositAmount)))
     setError('')
-    returnMutation.mutate({ id: selectedRental.id, method, note })
+  }
+
+  const depositTotal = selectedRental ? Number(selectedRental.depositAmount) : 0
+  const hasDeposit = !!selectedRental?.depositCollected && depositTotal > 0
+  const returnedNum = returnedDeposit === '' ? depositTotal : Number(returnedDeposit)
+  const withheld = Math.max(0, depositTotal - returnedNum)
+  const depositInvalid = hasDeposit && (Number.isNaN(returnedNum) || returnedNum < 0 || returnedNum > depositTotal)
+
+  function handleConfirm() {
+    if (!selectedRental || depositInvalid) return
+    setError('')
+    returnMutation.mutate({ id: selectedRental.id, method, note, returnedDepositAmount: returnedNum })
   }
 
   return (
@@ -98,7 +121,7 @@ export default function GenericReturnPage() {
               {searchResults?.map((r: any) => (
                 <button
                   key={r.id}
-                  onClick={() => setSelectedRental(r)}
+                  onClick={() => selectRental(r)}
                   className="w-full text-left bg-card border border-border rounded-2xl px-4 py-3.5 hover:border-ink hover:bg-surface transition-colors"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -116,7 +139,7 @@ export default function GenericReturnPage() {
         ) : (
           <>
             <button
-              onClick={() => { setSelectedRental(null); setError('') }}
+              onClick={() => { setSelectedRental(null); setReturnedDeposit(''); setError('') }}
               className="flex items-center gap-1.5 text-sm text-muted hover:text-ink mb-5 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -135,11 +158,36 @@ export default function GenericReturnPage() {
               </p>
             </div>
 
-            {/* Deposit refund */}
-            <div className="border-2 border-ink rounded-2xl p-4 mb-5 text-center">
-              <p className="text-xs text-muted mb-1">Deposit to refund</p>
-              <RupeeAmount amount={selectedRental.depositAmount} size="xl" className="text-ink font-display font-semibold" />
-            </div>
+            {/* Deposit settlement — editable refund, any withheld amount tracked */}
+            {hasDeposit ? (
+              <div className="border-2 border-ink rounded-2xl p-4 mb-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted">Deposit returned to customer</p>
+                  <span className="text-xs text-muted">of <RupeeAmount amount={depositTotal} /></span>
+                </div>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={depositTotal}
+                  value={returnedDeposit}
+                  onChange={(e) => setReturnedDeposit(e.target.value)}
+                  className="h-12 text-2xl font-display text-ink"
+                />
+                {withheld > 0 && !depositInvalid && (
+                  <p className="text-xs text-amber-700 font-semibold text-right">
+                    Withheld <RupeeAmount amount={withheld} />
+                  </p>
+                )}
+                {depositInvalid && (
+                  <p className="text-xs text-red-600">Enter an amount between 0 and the deposit collected.</p>
+                )}
+              </div>
+            ) : (
+              <div className="border border-border rounded-2xl p-4 mb-5 text-center">
+                <p className="text-sm text-muted">No security deposit was collected for this rental.</p>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -165,12 +213,16 @@ export default function GenericReturnPage() {
 
               <Button
                 onClick={handleConfirm}
-                disabled={returnMutation.isPending}
+                disabled={returnMutation.isPending || depositInvalid}
                 size="lg"
                 className="w-full"
               >
                 <RotateCcw className="h-4 w-4" />
-                {returnMutation.isPending ? 'Processing...' : `Confirm Return & Refund`}
+                {returnMutation.isPending
+                  ? 'Processing...'
+                  : hasDeposit && withheld > 0
+                    ? 'Confirm Return · Withhold deposit'
+                    : 'Confirm Return & Refund'}
               </Button>
             </div>
           </>
