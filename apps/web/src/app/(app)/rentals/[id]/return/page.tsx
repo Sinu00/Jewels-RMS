@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/lib/toast'
 import type { Rental } from '@rental/types'
 
 export default function ReturnPage() {
@@ -45,7 +46,11 @@ export default function ReturnPage() {
       queryClient.invalidateQueries({ queryKey: keys.dashboard() })
       router.push(`/rentals/${id}`)
     },
-    onError: (err: any) => setError(err.response?.data?.error ?? 'Failed to process return'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.error ?? 'Failed to process return'
+      setError(msg)
+      toast.error(msg)
+    },
   })
 
   // Default the editable field to the full deposit once the rental loads.
