@@ -7,6 +7,7 @@ export type PaymentType =
   | 'RENTAL_BALANCE'
   | 'DEPOSIT'
   | 'DEPOSIT_REFUND'
+  | 'DEPOSIT_WITHHELD'
   | 'OTHER'
 export type PaymentMethod = 'CASH' | 'UPI' | 'BANK_TRANSFER'
 

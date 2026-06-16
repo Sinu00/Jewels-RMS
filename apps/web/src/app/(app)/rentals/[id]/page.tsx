@@ -28,8 +28,9 @@ import type { Rental, PaymentMethod } from '@rental/types'
 
 function daysBetween(start: string, end: string): number {
   if (!start || !end) return 0
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+  // Inclusive of both the pickup day and the return day: 16th → 17th = 2 days.
+  const diffDays = Math.round((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24))
+  return Math.max(1, diffDays + 1)
 }
 
 function addDaysTo(dateStr: string, n: number): Date {

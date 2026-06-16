@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import { startOfDay, startOfWeek, startOfMonth } from 'date-fns'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
-import { RENTAL_INCOME_TYPES } from '../utils/rentalPayments'
+import { ACCOUNTS_INCOME_TYPES } from '../utils/rentalPayments'
 import { PAYMENT_METHODS, PAYMENT_TYPES, isPositiveAmount } from '../utils/validate'
 
 const router = Router()
@@ -19,7 +19,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   const where: any = { outletId }
   if (incomeOnly === 'true') {
-    where.type = { in: RENTAL_INCOME_TYPES }
+    where.type = { in: ACCOUNTS_INCOME_TYPES }
   } else if (type) {
     where.type = type
   }
@@ -70,6 +70,7 @@ router.get('/', async (req: Request, res: Response) => {
     RENTAL_BALANCE: 0,
     DEPOSIT: 0,
     DEPOSIT_REFUND: 0,
+    DEPOSIT_WITHHELD: 0,
     OTHER: 0,
   }
   let todayTotal = 0
@@ -111,7 +112,7 @@ router.get('/export', async (req: Request, res: Response) => {
 
   const where: any = { outletId }
   if (incomeOnly === 'true') {
-    where.type = { in: RENTAL_INCOME_TYPES }
+    where.type = { in: ACCOUNTS_INCOME_TYPES }
   } else if (type) {
     where.type = type
   }

@@ -70,11 +70,12 @@ export default function AccountsPage() {
     .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
   const allDepositPayments: any[] = (depositData?.data ?? []).filter(
-    (p: any) => p.type === 'DEPOSIT' || p.type === 'DEPOSIT_REFUND'
+    (p: any) => p.type === 'DEPOSIT' || p.type === 'DEPOSIT_REFUND' || p.type === 'DEPOSIT_WITHHELD'
   )
   const totalCollected = allDepositPayments.filter((p) => p.type === 'DEPOSIT').reduce((s: number, p: any) => s + Number(p.amount), 0)
   const totalRefunded = allDepositPayments.filter((p) => p.type === 'DEPOSIT_REFUND').reduce((s: number, p: any) => s + Number(p.amount), 0)
-  const netDeposit = totalCollected - totalRefunded
+  const totalWithheld = allDepositPayments.filter((p) => p.type === 'DEPOSIT_WITHHELD').reduce((s: number, p: any) => s + Number(p.amount), 0)
+  const netDeposit = totalCollected - totalRefunded - totalWithheld
 
   return (
     <div>
@@ -109,7 +110,8 @@ export default function AccountsPage() {
               value:
                 (incomeSummary?.todayByType?.RENTAL ?? 0) +
                 (incomeSummary?.todayByType?.RENTAL_ADVANCE ?? 0) +
-                (incomeSummary?.todayByType?.RENTAL_BALANCE ?? 0),
+                (incomeSummary?.todayByType?.RENTAL_BALANCE ?? 0) +
+                (incomeSummary?.todayByType?.DEPOSIT_WITHHELD ?? 0),
             },
             { label: 'This Week', value: incomeWeekTotal },
             { label: 'This Month', value: incomeMonthTotal },
@@ -123,10 +125,11 @@ export default function AccountsPage() {
           ))}
         </div>
       ) : (
-        <div className="px-5 md:px-6 max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="px-5 md:px-6 max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
             { label: 'Collected', value: totalCollected },
             { label: 'Refunded', value: totalRefunded },
+            { label: 'Withheld', value: totalWithheld },
             { label: 'Net Held', value: netDeposit },
           ].map(({ label, value }) => (
             <Card key={label}>
@@ -189,14 +192,19 @@ export default function AccountsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {allDepositPayments.map((p: any) => {
             const isRefund = p.type === 'DEPOSIT_REFUND'
+            const isWithheld = p.type === 'DEPOSIT_WITHHELD'
+            const label = isRefund ? 'Deposit Refund' : isWithheld ? 'Deposit Withheld' : 'Deposit Collected'
+            const amountClass = isRefund ? 'text-red-600' : isWithheld ? 'text-amber-700' : 'text-blue-700'
             return (
               <div key={p.id} className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center justify-between text-sm">
                 <div>
                   <div className="flex items-center gap-2">
                     {isRefund
                       ? <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-                      : <TrendingUp className="h-3.5 w-3.5 text-blue-600" />}
-                    <span className="font-semibold">{isRefund ? 'Deposit Refund' : 'Deposit Collected'}</span>
+                      : isWithheld
+                        ? <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
+                        : <TrendingUp className="h-3.5 w-3.5 text-blue-600" />}
+                    <span className="font-semibold">{label}</span>
                   </div>
                   <p className="text-xs text-muted mt-1">
                     {p.method.replace(/_/g, ' ')} · {p.recordedBy.name}
@@ -206,7 +214,7 @@ export default function AccountsPage() {
                   </p>
                   <p className="text-xs text-muted mt-0.5">{formatDate(p.createdAt)}</p>
                 </div>
-                <span className={`font-display font-semibold text-base shrink-0 ml-4 ${isRefund ? 'text-red-600' : 'text-blue-700'}`}>
+                <span className={`font-display font-semibold text-base shrink-0 ml-4 ${amountClass}`}>
                   {isRefund ? '−' : '+'}{formatINR(p.amount)}
                 </span>
               </div>

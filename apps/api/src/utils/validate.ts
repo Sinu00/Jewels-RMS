@@ -7,6 +7,7 @@ export const PAYMENT_TYPES: PaymentType[] = [
   'RENTAL_BALANCE',
   'DEPOSIT',
   'DEPOSIT_REFUND',
+  'DEPOSIT_WITHHELD',
   'OTHER',
 ]
 

@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
 import { formatDate, formatINR } from '@/lib/formatters'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,6 +23,8 @@ export default function ReturnPage() {
   const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
+  // Empty string until the rental loads; then defaults to the full deposit.
+  const [returnedDeposit, setReturnedDeposit] = useState<string>('')
 
   const { data: rental, isLoading } = useQuery<Rental>({
     queryKey: keys.rental(id),
@@ -29,7 +32,12 @@ export default function ReturnPage() {
   })
 
   const mutation = useMutation({
-    mutationFn: () => api.post(`/rentals/${id}/return`, { method, note }),
+    mutationFn: () =>
+      api.post(`/rentals/${id}/return`, {
+        method,
+        note,
+        returnedDepositAmount: Number(returnedDeposit),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
@@ -39,6 +47,13 @@ export default function ReturnPage() {
     },
     onError: (err: any) => setError(err.response?.data?.error ?? 'Failed to process return'),
   })
+
+  // Default the editable field to the full deposit once the rental loads.
+  useEffect(() => {
+    if (rental?.depositCollected) {
+      setReturnedDeposit((v) => (v === '' ? String(Number(rental.depositAmount)) : v))
+    }
+  }, [rental])
 
   if (isLoading) return <LoadingSpinner />
   if (!rental) return <div className="p-6 text-muted">Rental not found</div>
@@ -54,6 +69,11 @@ export default function ReturnPage() {
   }
 
   const balanceDue = rental.rentalDue ?? 0
+  const depositTotal = Number(rental.depositAmount)
+  const hasDeposit = rental.depositCollected && depositTotal > 0
+  const returnedNum = returnedDeposit === '' ? depositTotal : Number(returnedDeposit)
+  const withheld = Math.max(0, depositTotal - returnedNum)
+  const depositInvalid = hasDeposit && (Number.isNaN(returnedNum) || returnedNum < 0 || returnedNum > depositTotal)
 
   return (
     <div>
@@ -92,18 +112,39 @@ export default function ReturnPage() {
           </div>
         )}
 
-        {/* Deposit refund — the dominant element */}
-        <div className="rounded-2xl border-2 border-ink bg-surface p-6 text-center">
-          <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
-            Refund to customer
-          </p>
-          <p className="font-display text-4xl text-ink leading-none">
-            {formatINR(rental.depositAmount)}
-          </p>
-          <p className="text-xs text-muted mt-2">
-            Security deposit · collected {formatDate(rental.startDate)}
-          </p>
-        </div>
+        {/* Deposit settlement — editable refund, with any withheld amount tracked */}
+        {hasDeposit ? (
+          <div className="rounded-2xl border-2 border-ink bg-surface p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted uppercase tracking-wide">
+                Deposit returned to customer
+              </p>
+              <span className="text-xs text-muted">of {formatINR(depositTotal)}</span>
+            </div>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={depositTotal}
+              value={returnedDeposit}
+              onChange={(e) => setReturnedDeposit(e.target.value)}
+              className="h-12 text-2xl font-display text-ink"
+            />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted">Security deposit · collected {formatDate(rental.startDate)}</span>
+              {withheld > 0 && !depositInvalid && (
+                <span className="font-semibold text-amber-700">Withheld {formatINR(withheld)}</span>
+              )}
+            </div>
+            {depositInvalid && (
+              <p className="text-xs text-red-600">Enter an amount between 0 and {formatINR(depositTotal)}.</p>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+            <p className="text-sm text-muted">No security deposit was collected for this rental.</p>
+          </div>
+        )}
 
         {/* Refund method */}
         <div className="space-y-3">
@@ -134,13 +175,17 @@ export default function ReturnPage() {
           size="lg"
           className="w-full"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || depositInvalid}
         >
           {mutation.isPending
             ? 'Processing…'
-            : balanceDue > 0
-              ? `Collect ${formatINR(balanceDue)} · Refund ${formatINR(rental.depositAmount)}`
-              : `Confirm return · Refund ${formatINR(rental.depositAmount)}`}
+            : [
+                balanceDue > 0 ? `Collect ${formatINR(balanceDue)}` : null,
+                hasDeposit ? `Refund ${formatINR(returnedNum)}` : null,
+                hasDeposit && withheld > 0 ? `Withhold ${formatINR(withheld)}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'Confirm return'}
         </Button>
       </div>
     </div>

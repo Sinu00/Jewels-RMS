@@ -71,10 +71,11 @@ export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
 
   totalDays: () => {
     const { startDate, dueDate } = get()
-    const diff = Math.ceil(
+    // Inclusive of both the pickup day and the return day: 16th → 17th = 2 days.
+    const diff = Math.round(
       (new Date(dueDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
     )
-    return Math.max(1, diff)
+    return Math.max(1, diff + 1)
   },
 
   totalAmount: () => {

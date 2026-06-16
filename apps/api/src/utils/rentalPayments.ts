@@ -2,6 +2,11 @@ import type { PaymentPlan, PaymentType } from '@prisma/client'
 
 export const RENTAL_INCOME_TYPES: PaymentType[] = ['RENTAL', 'RENTAL_ADVANCE', 'RENTAL_BALANCE']
 
+// Income shown on the Accounts page = rent income plus any deposit the shop keeps
+// (withheld for damage/late). Kept separate from RENTAL_INCOME_TYPES so rent-due
+// math (rentalPaidAmount) stays unaffected.
+export const ACCOUNTS_INCOME_TYPES: PaymentType[] = [...RENTAL_INCOME_TYPES, 'DEPOSIT_WITHHELD']
+
 export function sumPaymentsByTypes(
   payments: Array<{ type: PaymentType; amount: unknown }>,
   types: PaymentType[]

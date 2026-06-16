@@ -415,7 +415,7 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
 // POST /rentals/:id/return
 router.post('/:id/return', async (req: Request, res: Response) => {
   const { outletId, id: userId } = (req as AuthRequest).user
-  const { method, note } = req.body
+  const { method, note, returnedDepositAmount } = req.body
 
   if (!method) return res.status(400).json({ error: 'method required' })
   if (!PAYMENT_METHODS.includes(method)) {
@@ -436,6 +436,20 @@ router.post('/:id/return', async (req: Request, res: Response) => {
   const rentalPaid = rentalPaidAmount(rental.payments)
   const rentalDue = Math.max(0, Number(rental.totalRentalAmount) - rentalPaid)
 
+  // Deposit settlement: the staff may return less than the full deposit (e.g.
+  // deduct for damage/late). Default to the full deposit when not specified.
+  const depositTotal = Number(rental.depositAmount)
+  let depositReturned = depositTotal
+  if (rental.depositCollected && returnedDepositAmount !== undefined && returnedDepositAmount !== null) {
+    if (!isNonNegativeAmount(returnedDepositAmount) || Number(returnedDepositAmount) > depositTotal) {
+      return res
+        .status(400)
+        .json({ error: `Returned deposit must be between 0 and ${depositTotal}` })
+    }
+    depositReturned = Number(returnedDepositAmount)
+  }
+  const depositWithheld = Math.max(0, depositTotal - depositReturned)
+
   await prisma.$transaction(async (tx) => {
     if (rentalDue > 0) {
       await tx.payment.create({
@@ -455,17 +469,33 @@ router.post('/:id/return', async (req: Request, res: Response) => {
       data: { status: 'RETURNED', returnedAt: new Date(), depositRefunded: rental.depositCollected },
     })
     if (rental.depositCollected) {
-      await tx.payment.create({
-        data: {
-          outletId,
-          rentalId: req.params.id,
-          recordedById: userId,
-          type: 'DEPOSIT_REFUND',
-          method,
-          amount: rental.depositAmount,
-          note: note ?? null,
-        },
-      })
+      if (depositReturned > 0) {
+        await tx.payment.create({
+          data: {
+            outletId,
+            rentalId: req.params.id,
+            recordedById: userId,
+            type: 'DEPOSIT_REFUND',
+            method,
+            amount: depositReturned,
+            note: note ?? null,
+          },
+        })
+      }
+      // Track the kept portion as income (damage/late deduction).
+      if (depositWithheld > 0) {
+        await tx.payment.create({
+          data: {
+            outletId,
+            rentalId: req.params.id,
+            recordedById: userId,
+            type: 'DEPOSIT_WITHHELD',
+            method,
+            amount: depositWithheld,
+            note: note ?? 'Deposit withheld',
+          },
+        })
+      }
     }
   })
 
