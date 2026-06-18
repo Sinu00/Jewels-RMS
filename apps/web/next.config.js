@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
-  register: true,
-  skipWaiting: true,
-})
-
+// PWA/service-worker removed: this is an internal PC/tablet tool, so offline +
+// install-as-app aren't needed, and the service worker was a recurring source of
+// stale-cache bugs. Any worker already registered in a user's browser is
+// unregistered automatically on next load (see app/providers.tsx).
 const nextConfig = {
   async rewrites() {
     return [
@@ -34,4 +31,4 @@ const nextConfig = {
   transpilePackages: ['@rental/types'],
 }
 
-module.exports = withPWA(nextConfig)
+module.exports = nextConfig
