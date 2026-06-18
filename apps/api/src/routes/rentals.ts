@@ -279,7 +279,7 @@ router.post('/', async (req: Request, res: Response) => {
   for (let attempt = 0; ; attempt++) {
     try {
       fullRental = await prisma.$transaction(async (tx) => {
-        const rentalNumber = await generateRentalNumber(outletId, tx)
+        const rentalNumber = await generateRentalNumber(tx)
         const newRental = await tx.rental.create({
       data: {
         outletId,
