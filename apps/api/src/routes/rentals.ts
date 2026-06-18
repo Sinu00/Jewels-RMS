@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { startOfDay, addDays } from 'date-fns'
-import { PaymentMethod, PaymentPlan } from '@prisma/client'
+import { PaymentMethod, PaymentPlan, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { generateRentalNumber } from '../utils/rentalNumber'
@@ -271,9 +271,16 @@ router.post('/', async (req: Request, res: Response) => {
       depositCollectedAtBooking &&
       pickupDay.getTime() <= today.getTime())
 
-  const fullRental = await prisma.$transaction(async (tx) => {
-    const rentalNumber = await generateRentalNumber(outletId, tx)
-    const newRental = await tx.rental.create({
+  // The rental number is derived from a read-then-write, so two near-simultaneous
+  // bookings (or a retry after a slow/failed request) can pick the same number and
+  // clash on the unique constraint. Retry a few times with a freshly-read number
+  // instead of surfacing "That record already exists".
+  let fullRental
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fullRental = await prisma.$transaction(async (tx) => {
+        const rentalNumber = await generateRentalNumber(outletId, tx)
+        const newRental = await tx.rental.create({
       data: {
         outletId,
         customerId,
@@ -309,7 +316,15 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     return tx.rental.findUnique({ where: { id: newRental.id }, include: rentalDetailInclude })
-  })
+      })
+      break
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && attempt < 5) {
+        continue
+      }
+      throw e
+    }
+  }
 
   res.status(201).json(mapRentalDetail(fullRental))
 })

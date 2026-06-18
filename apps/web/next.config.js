@@ -23,24 +23,13 @@ const nextConfig = {
     ]
   },
   images: {
-    // The API now returns same-origin relative URLs (/uploads/...), which
-    // <Image> treats as internal and serves without a remote-host allowlist.
-    // These remotePatterns are kept only as a fallback for any absolute URLs.
-    remotePatterns: [
-      // Dev: API serves /uploads directly on :3001
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3001',
-        pathname: '/uploads/**',
-      },
-      // Prod: Caddy serves /uploads under the public domain
-      {
-        protocol: 'https',
-        hostname: 'jewels.rivaazbridal.in',
-        pathname: '/uploads/**',
-      },
-    ],
+    // Serve photos as-is instead of running every one through Next's on-the-fly
+    // image optimizer. That optimizer (sharp/wasm) runs inside the web process
+    // and, on a small server, blows past the memory limit when the inventory
+    // grid loads many photos at once — crashing the process (HTTP 502) and
+    // dropping thumbnails. Photos are already small (compressed at upload) and
+    // cached 30 days by Caddy, so optimization isn't needed.
+    unoptimized: true,
   },
   transpilePackages: ['@rental/types'],
 }
