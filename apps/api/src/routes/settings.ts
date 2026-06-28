@@ -223,4 +223,40 @@ router.delete('/outlets/:id/staff/:userId', async (req: Request, res: Response) 
   res.json({ success: true })
 })
 
+// ─── Danger Zone: clear transactional data ──────────────────────────────────
+
+// POST /settings/clear-data
+// Wipes all rentals, rental items/extensions, payments and customers for the
+// CURRENT outlet, while keeping ornaments (inventory), staff accounts and the
+// outlet itself. Once rentals are gone, every ornament reads as available again
+// (availability is derived from rentals). Irreversible — gated by a shared
+// password (env CLEAR_DATA_PASSWORD, default "rmsclear").
+router.post('/clear-data', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const { password } = req.body as { password?: string }
+
+  const expected = process.env.CLEAR_DATA_PASSWORD ?? 'rmsclear'
+  if (password !== expected) {
+    return res.status(403).json({ error: 'Incorrect password.' })
+  }
+
+  // Delete children before parents — the schema defines no cascade deletes.
+  const deleted = await prisma.$transaction(async (tx) => {
+    const payments = await tx.payment.deleteMany({ where: { outletId } })
+    const extensions = await tx.rentalExtension.deleteMany({ where: { rental: { outletId } } })
+    const items = await tx.rentalItem.deleteMany({ where: { rental: { outletId } } })
+    const rentals = await tx.rental.deleteMany({ where: { outletId } })
+    const customers = await tx.customer.deleteMany({ where: { outletId } })
+    return {
+      payments: payments.count,
+      rentalExtensions: extensions.count,
+      rentalItems: items.count,
+      rentals: rentals.count,
+      customers: customers.count,
+    }
+  })
+
+  res.json({ success: true, deleted })
+})
+
 export default router
