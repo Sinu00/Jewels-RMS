@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useDebounce } from '@/hooks/useDebounce'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { X, Check } from 'lucide-react'
 import Image from 'next/image'
 import { api } from '@/lib/api'
@@ -25,21 +25,31 @@ export function Step2Ornaments() {
     queryFn: async () => (await api.get('/ornaments/categories')).data,
   })
 
-  const { data, isLoading } = useQuery<PaginatedResponse<Ornament>>({
+  // Page through results instead of capping at one fixed limit — otherwise a
+  // category with more items than the page size silently hides the rest (the
+  // list is newest-first, so it was the oldest items that disappeared).
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<
+    PaginatedResponse<Ornament>
+  >({
     queryKey: keys.ornaments({ search: debouncedSearch, category, available: 'true', startDate, dueDate }),
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
         available: 'true',
         startDate,
         dueDate,
         limit: '40',
+        page: String(pageParam),
       })
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (category) params.set('category', category)
       return (await api.get(`/ornaments?${params}`)).data
     },
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
     enabled: !!startDate && !!dueDate,
   })
+
+  const ornaments = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data])
 
   function clearSearch() { setSearch('') }
 
@@ -105,10 +115,10 @@ export function Step2Ornaments() {
       {/* Available ornaments grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto">
         {isLoading && <p className="text-sm text-muted col-span-full py-4 text-center">Loading…</p>}
-        {data?.data.length === 0 && !isLoading && (
+        {ornaments.length === 0 && !isLoading && (
           <p className="text-sm text-muted col-span-full py-4 text-center">No ornaments found</p>
         )}
-        {data?.data.map((ornament) => {
+        {ornaments.map((ornament) => {
           const isSelected = selectedIds.has(ornament.id)
           return (
             <button
@@ -142,6 +152,18 @@ export function Step2Ornaments() {
             </button>
           )
         })}
+        {hasNextPage && (
+          <div className="col-span-full flex justify-center pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFetchingNextPage}
+              onClick={() => fetchNextPage()}
+            >
+              {isFetchingNextPage ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-1">

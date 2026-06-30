@@ -52,7 +52,7 @@ model Ornament {
   id             String   @id @default(cuid())
   outletId       String
   outlet         Outlet   @relation(fields: [outletId], references: [id])
-  itemCode       String   @unique
+  itemCode       String
   name           String
   category       String
   weightGrams    Decimal? @db.Decimal(8, 2)
@@ -65,6 +65,7 @@ model Ornament {
   images      OrnamentImage[]
   rentalItems RentalItem[]
 
+  @@unique([outletId, itemCode])
   @@index([outletId, isDeleted])
   @@index([outletId, category])
   @@map("ornaments")
