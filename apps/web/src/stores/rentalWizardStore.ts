@@ -19,7 +19,6 @@ interface RentalWizardState {
 
   totalDays: () => number
   totalAmount: () => number
-  bookingPaymentToday: () => number
 
   setStep: (step: WizardStep) => void
   setDates: (startDate: string, dueDate: string) => void
@@ -53,19 +52,6 @@ const initial = {
   notes: '',
 }
 
-function bookingAmount(plan: PaymentPlan, total: number, deposit: number): number {
-  switch (plan) {
-    case 'HALF_ADVANCE':
-      return Math.round(total / 2)
-    case 'FULL_RENT_DEFER_DEPOSIT':
-      return total
-    case 'FULL_UPFRONT':
-      return total + deposit
-    default:
-      return total
-  }
-}
-
 export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
   ...initial,
 
@@ -82,11 +68,6 @@ export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
     const { selectedItems } = get()
     const days = get().totalDays()
     return selectedItems.reduce((sum, item) => sum + item.ratePerDay * days, 0)
-  },
-
-  bookingPaymentToday: () => {
-    const { paymentPlan, depositAmount } = get()
-    return bookingAmount(paymentPlan, get().totalAmount(), depositAmount)
   },
 
   setStep: (step) => set({ step }),

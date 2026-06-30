@@ -24,8 +24,9 @@ export default function ReturnPage() {
   const [method, setMethod] = useState('CASH')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
-  // Empty string until the rental loads; then defaults to the full deposit.
+  // Empty string until the rental loads; then defaults to the full balance/deposit.
   const [returnedDeposit, setReturnedDeposit] = useState<string>('')
+  const [rentCollected, setRentCollected] = useState<string>('')
 
   const { data: rental, isLoading } = useQuery<Rental>({
     queryKey: keys.rental(id),
@@ -38,6 +39,7 @@ export default function ReturnPage() {
         method,
         note,
         returnedDepositAmount: Number(returnedDeposit),
+        rentCollected: Number(rentCollected) || 0,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
@@ -53,11 +55,14 @@ export default function ReturnPage() {
     },
   })
 
-  // Default the editable field to the full deposit once the rental loads.
+  // Default the editable fields once the rental loads: deposit refund = what was
+  // actually collected, rent = the outstanding balance.
   useEffect(() => {
-    if (rental?.depositCollected) {
-      setReturnedDeposit((v) => (v === '' ? String(Number(rental.depositAmount)) : v))
+    if (!rental) return
+    if ((rental.depositPaid ?? 0) > 0) {
+      setReturnedDeposit((v) => (v === '' ? String(rental.depositPaid ?? 0) : v))
     }
+    setRentCollected((v) => (v === '' ? String(rental.rentalDue ?? 0) : v))
   }, [rental])
 
   if (isLoading) return <LoadingSpinner />
@@ -74,11 +79,13 @@ export default function ReturnPage() {
   }
 
   const balanceDue = rental.rentalDue ?? 0
-  const depositTotal = Number(rental.depositAmount)
-  const hasDeposit = rental.depositCollected && depositTotal > 0
-  const returnedNum = returnedDeposit === '' ? depositTotal : Number(returnedDeposit)
-  const withheld = Math.max(0, depositTotal - returnedNum)
-  const depositInvalid = hasDeposit && (Number.isNaN(returnedNum) || returnedNum < 0 || returnedNum > depositTotal)
+  const depositPaid = rental.depositPaid ?? 0
+  const hasDeposit = depositPaid > 0
+  const returnedNum = returnedDeposit === '' ? depositPaid : Number(returnedDeposit)
+  const withheld = Math.max(0, depositPaid - returnedNum)
+  const depositInvalid = hasDeposit && (Number.isNaN(returnedNum) || returnedNum < 0 || returnedNum > depositPaid)
+  const rentNum = rentCollected === '' ? balanceDue : Number(rentCollected)
+  const rentInvalid = balanceDue > 0 && (Number.isNaN(rentNum) || rentNum < 0 || rentNum > balanceDue)
 
   return (
     <div>
@@ -106,14 +113,30 @@ export default function ReturnPage() {
           </div>
         </div>
 
-        {/* Outstanding rent balance to collect (e.g. from an unpaid extension) */}
+        {/* Outstanding rent balance — editable; may be left partly unpaid */}
         {balanceDue > 0 && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
-            <div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+            <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-amber-900">Collect rent balance</p>
-              <p className="text-xs text-amber-800 mt-0.5">Unpaid rent / extension on this rental</p>
+              <span className="text-xs text-amber-800">due {formatINR(balanceDue)}</span>
             </div>
-            <span className="font-display font-semibold text-amber-900">{formatINR(balanceDue)}</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={balanceDue}
+              value={rentCollected}
+              onChange={(e) => setRentCollected(e.target.value)}
+              className="h-11 text-lg font-display text-ink bg-card"
+            />
+            {balanceDue - rentNum > 0 && !rentInvalid && (
+              <p className="text-xs text-amber-800">
+                {formatINR(balanceDue - rentNum)} will remain unpaid after return.
+              </p>
+            )}
+            {rentInvalid && (
+              <p className="text-xs text-red-600">Enter an amount between 0 and {formatINR(balanceDue)}.</p>
+            )}
           </div>
         )}
 
@@ -124,13 +147,13 @@ export default function ReturnPage() {
               <p className="text-xs font-medium text-muted uppercase tracking-wide">
                 Deposit returned to customer
               </p>
-              <span className="text-xs text-muted">of {formatINR(depositTotal)}</span>
+              <span className="text-xs text-muted">of {formatINR(depositPaid)}</span>
             </div>
             <Input
               type="number"
               inputMode="decimal"
               min={0}
-              max={depositTotal}
+              max={depositPaid}
               value={returnedDeposit}
               onChange={(e) => setReturnedDeposit(e.target.value)}
               className="h-12 text-2xl font-display text-ink"
@@ -142,7 +165,7 @@ export default function ReturnPage() {
               )}
             </div>
             {depositInvalid && (
-              <p className="text-xs text-red-600">Enter an amount between 0 and {formatINR(depositTotal)}.</p>
+              <p className="text-xs text-red-600">Enter an amount between 0 and {formatINR(depositPaid)}.</p>
             )}
           </div>
         ) : (
@@ -180,12 +203,12 @@ export default function ReturnPage() {
           size="lg"
           className="w-full"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending || depositInvalid}
+          disabled={mutation.isPending || depositInvalid || rentInvalid}
         >
           {mutation.isPending
             ? 'Processing…'
             : [
-                balanceDue > 0 ? `Collect ${formatINR(balanceDue)}` : null,
+                rentNum > 0 ? `Collect ${formatINR(rentNum)}` : null,
                 hasDeposit ? `Refund ${formatINR(returnedNum)}` : null,
                 hasDeposit && withheld > 0 ? `Withhold ${formatINR(withheld)}` : null,
               ]

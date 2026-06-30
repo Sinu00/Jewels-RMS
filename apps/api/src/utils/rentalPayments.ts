@@ -1,6 +1,14 @@
 import type { PaymentPlan, PaymentType } from '@prisma/client'
 
-export const RENTAL_INCOME_TYPES: PaymentType[] = ['RENTAL', 'RENTAL_ADVANCE', 'RENTAL_BALANCE']
+// RENTAL_REFUND is stored as a negative amount (a rent advance handed back on
+// cancellation), so including it here makes every rent total — rentalPaidAmount,
+// the dashboard's rent revenue, the Accounts income view — net it out for free.
+export const RENTAL_INCOME_TYPES: PaymentType[] = [
+  'RENTAL',
+  'RENTAL_ADVANCE',
+  'RENTAL_BALANCE',
+  'RENTAL_REFUND',
+]
 
 // Income shown on the Accounts page = rent income plus any deposit the shop keeps
 // (withheld for damage/late). Kept separate from RENTAL_INCOME_TYPES so rent-due
@@ -39,55 +47,4 @@ export function computePickupDue(
   const rentalDue = Math.max(0, totalRentalAmount - rentalPaid)
   const depositDue = depositPaid >= depositAmount ? 0 : Math.max(0, depositAmount - depositPaid)
   return { rentalDue, depositDue }
-}
-
-export interface BookingPaymentInput {
-  paymentPlan: PaymentPlan
-  totalRentalAmount: number
-  depositAmount: number
-  method: string
-}
-
-export function bookingPaymentsToCreate(input: BookingPaymentInput): Array<{
-  type: PaymentType
-  amount: number
-}> {
-  const { paymentPlan, totalRentalAmount, depositAmount } = input
-  const payments: Array<{ type: PaymentType; amount: number }> = []
-
-  switch (paymentPlan) {
-    case 'HALF_ADVANCE':
-      payments.push({ type: 'RENTAL_ADVANCE', amount: Math.round(totalRentalAmount / 2) })
-      break
-    case 'FULL_RENT_DEFER_DEPOSIT':
-      payments.push({ type: 'RENTAL', amount: totalRentalAmount })
-      break
-    case 'FULL_UPFRONT':
-      payments.push({ type: 'RENTAL', amount: totalRentalAmount })
-      if (depositAmount > 0) {
-        payments.push({ type: 'DEPOSIT', amount: depositAmount })
-      }
-      break
-  }
-
-  return payments.filter((p) => p.amount > 0)
-}
-
-export function pickupPaymentsToCreate(
-  paymentPlan: PaymentPlan,
-  rentalDue: number,
-  depositDue: number
-): Array<{ type: PaymentType; amount: number }> {
-  const payments: Array<{ type: PaymentType; amount: number }> = []
-
-  if (rentalDue > 0) {
-    const type: PaymentType =
-      paymentPlan === 'HALF_ADVANCE' ? 'RENTAL_BALANCE' : 'RENTAL'
-    payments.push({ type, amount: rentalDue })
-  }
-  if (depositDue > 0) {
-    payments.push({ type: 'DEPOSIT', amount: depositDue })
-  }
-
-  return payments
 }

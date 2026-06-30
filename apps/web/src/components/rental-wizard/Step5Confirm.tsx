@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
-import { formatINR, formatDate, formatDateInput } from '@/lib/formatters'
+import { formatINR, formatDate } from '@/lib/formatters'
 import { useRentalWizardStore } from '@/stores/rentalWizardStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,9 +15,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { toast } from '@/lib/toast'
-import { PAYMENT_PLAN_LABELS, type PaymentPlan } from '@rental/types'
-
-const PLANS: PaymentPlan[] = ['HALF_ADVANCE', 'FULL_RENT_DEFER_DEPOSIT', 'FULL_UPFRONT']
+import type { PaymentPlan } from '@rental/types'
 
 export function Step5Confirm() {
   const router = useRouter()
@@ -29,24 +27,36 @@ export function Step5Confirm() {
     startDate,
     dueDate,
     depositAmount,
-    paymentPlan,
     paymentMethod,
     notes,
     setDeposit,
-    setPaymentPlan,
     setPaymentMethod,
     setNotes,
     setStep,
     totalAmount,
-    bookingPaymentToday,
     reset,
   } = useRentalWizardStore()
 
   const [error, setError] = useState('')
   const total = totalAmount()
-  const collectingToday = bookingPaymentToday()
-  const today = formatDateInput(new Date())
-  const isSameDayPickup = startDate <= today
+
+  // Staff enter what they're collecting now; the rest is a tracked balance.
+  // Default to collecting everything; quick buttons adjust both fields at once.
+  const [rentNow, setRentNow] = useState<number>(total)
+  const [depositNow, setDepositNow] = useState<number>(depositAmount)
+
+  const rentCollect = Math.min(Math.max(0, rentNow || 0), total)
+  const depositCollect = Math.min(Math.max(0, depositNow || 0), depositAmount)
+  const rentBalance = total - rentCollect
+  const depositBalance = depositAmount - depositCollect
+
+  // The plan is just a label now — derive one that matches the amounts entered.
+  const derivedPlan: PaymentPlan =
+    rentCollect >= total && depositCollect >= depositAmount
+      ? 'FULL_UPFRONT'
+      : rentCollect >= total
+        ? 'FULL_RENT_DEFER_DEPOSIT'
+        : 'HALF_ADVANCE'
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -67,9 +77,10 @@ export function Step5Confirm() {
           dueDate,
           depositAmount,
           paymentMethod,
-          paymentPlan,
+          paymentPlan: derivedPlan,
+          rentCollectedNow: rentCollect,
+          depositCollectedNow: depositCollect,
           notes: notes || undefined,
-          autoPickup: isSameDayPickup && paymentPlan === 'FULL_UPFRONT',
           items: selectedItems.map((i) => ({ ornamentId: i.ornamentId, ratePerDay: i.ratePerDay })),
         })
       ).data
@@ -124,34 +135,68 @@ export function Step5Confirm() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Payment plan</Label>
-        {PLANS.map((plan) => (
-          <button
-            key={plan}
-            type="button"
-            onClick={() => setPaymentPlan(plan)}
-            className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
-              paymentPlan === plan ? 'border-ink bg-surface' : 'border-border bg-card hover:border-ink/30'
-            }`}
-          >
-            <p className="text-sm font-medium text-ink">{PAYMENT_PLAN_LABELS[plan]}</p>
-          </button>
-        ))}
-      </div>
-
       <div className="space-y-1.5">
         <Label>Deposit amount (₹) *</Label>
         <Input
           type="number"
           min="0"
           value={depositAmount || ''}
-          onChange={(e) => setDeposit(Number(e.target.value))}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setDeposit(v)
+            // Keep "deposit collecting now" tracking the agreed deposit by default.
+            setDepositNow(v)
+          }}
         />
       </div>
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>Collecting now</Label>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setRentNow(total); setDepositNow(depositAmount) }}
+              className="text-xs px-2 py-1 rounded-full bg-surface border border-border hover:border-ink/40"
+            >Full</button>
+            <button
+              type="button"
+              onClick={() => { setRentNow(Math.round(total / 2)); setDepositNow(0) }}
+              className="text-xs px-2 py-1 rounded-full bg-surface border border-border hover:border-ink/40"
+            >Half rent</button>
+            <button
+              type="button"
+              onClick={() => { setRentNow(0); setDepositNow(0) }}
+              className="text-xs px-2 py-1 rounded-full bg-surface border border-border hover:border-ink/40"
+            >Nothing</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <p className="text-xs text-muted">Rent (of {formatINR(total)})</p>
+            <Input
+              type="number"
+              min="0"
+              max={total}
+              value={rentNow || ''}
+              onChange={(e) => setRentNow(Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted">Deposit (of {formatINR(depositAmount)})</p>
+            <Input
+              type="number"
+              min="0"
+              max={depositAmount}
+              value={depositNow || ''}
+              onChange={(e) => setDepositNow(Number(e.target.value))}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
-        <Label>Payment method (collected today)</Label>
+        <Label>Payment method</Label>
         <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)}>
           <option value="CASH">Cash</option>
           <option value="UPI">UPI</option>
@@ -159,18 +204,23 @@ export function Step5Confirm() {
         </Select>
       </div>
 
-      <div className="flex items-center justify-between bg-surface border border-border rounded-xl px-4 py-3">
-        <span className="text-sm font-medium">Collecting today</span>
-        <RupeeAmount amount={collectingToday} size="lg" className="text-ink" />
+      <div className="bg-surface border border-border rounded-xl px-4 py-3 text-sm space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="font-medium">Collecting now</span>
+          <RupeeAmount amount={rentCollect + depositCollect} size="md" className="text-ink" />
+        </div>
+        {(rentBalance > 0 || depositBalance > 0) && (
+          <p className="text-xs text-muted">
+            Balance at pickup ({formatDate(startDate)}):{' '}
+            {rentBalance > 0 && `rent ${formatINR(rentBalance)}`}
+            {rentBalance > 0 && depositBalance > 0 && ' + '}
+            {depositBalance > 0 && `deposit ${formatINR(depositBalance)}`}
+          </p>
+        )}
+        {depositBalance > 0 && (
+          <p className="text-xs text-amber-700">Full deposit must be collected before handover.</p>
+        )}
       </div>
-
-      {paymentPlan !== 'FULL_UPFRONT' && (
-        <p className="text-xs text-muted">
-          Deposit {formatINR(depositAmount)}
-          {paymentPlan === 'HALF_ADVANCE' ? ` and remaining rent ` : ' '}
-          will be collected on pickup ({formatDate(startDate)}).
-        </p>
-      )}
 
       <div className="space-y-1.5">
         <Label>Notes (optional)</Label>

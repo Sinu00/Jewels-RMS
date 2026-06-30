@@ -5,6 +5,7 @@ export type PaymentType =
   | 'RENTAL'
   | 'RENTAL_ADVANCE'
   | 'RENTAL_BALANCE'
+  | 'RENTAL_REFUND'
   | 'DEPOSIT'
   | 'DEPOSIT_REFUND'
   | 'DEPOSIT_WITHHELD'
@@ -129,6 +130,7 @@ export interface Rental {
   totalRentalAmount: number
   rentalPaid?: number
   rentalDue?: number
+  depositPaid?: number
   depositDue?: number
   amountDueOnPickup?: number
   canPickup?: boolean

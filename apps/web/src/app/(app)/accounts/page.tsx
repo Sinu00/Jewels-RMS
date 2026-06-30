@@ -111,6 +111,8 @@ export default function AccountsPage() {
                 (incomeSummary?.todayByType?.RENTAL ?? 0) +
                 (incomeSummary?.todayByType?.RENTAL_ADVANCE ?? 0) +
                 (incomeSummary?.todayByType?.RENTAL_BALANCE ?? 0) +
+                // RENTAL_REFUND is negative, so it nets the day's rent income.
+                (incomeSummary?.todayByType?.RENTAL_REFUND ?? 0) +
                 (incomeSummary?.todayByType?.DEPOSIT_WITHHELD ?? 0),
             },
             { label: 'This Week', value: incomeWeekTotal },
@@ -162,11 +164,16 @@ export default function AccountsPage() {
             <EmptyState icon={Receipt} title="No income records found" description="Try adjusting the filters above." />
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {incomePayments.map((p: any) => (
+          {incomePayments.map((p: any) => {
+            // A rent refund is stored negative — show it as money out, not income.
+            const isRefund = p.amount < 0
+            return (
             <div key={p.id} className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center justify-between text-sm">
               <div>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                  {isRefund
+                    ? <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+                    : <TrendingUp className="h-3.5 w-3.5 text-green-600" />}
                   <span className="font-semibold capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</span>
                 </div>
                 <p className="text-xs text-muted mt-1">
@@ -177,11 +184,12 @@ export default function AccountsPage() {
                 </p>
                 <p className="text-xs text-muted mt-0.5">{formatDate(p.createdAt)}</p>
               </div>
-              <span className="font-display font-semibold text-base shrink-0 ml-4 text-green-700">
-                +{formatINR(p.amount)}
+              <span className={`font-display font-semibold text-base shrink-0 ml-4 ${isRefund ? 'text-red-600' : 'text-green-700'}`}>
+                {isRefund ? '−' : '+'}{formatINR(Math.abs(p.amount))}
               </span>
             </div>
-          ))}
+            )
+          })}
           </div>
         </div>
       ) : (

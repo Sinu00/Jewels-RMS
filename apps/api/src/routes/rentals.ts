@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { startOfDay, addDays } from 'date-fns'
-import { PaymentMethod, PaymentPlan, Prisma } from '@prisma/client'
+import { PaymentMethod, PaymentPlan, PaymentType, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { generateRentalNumber } from '../utils/rentalNumber'
@@ -10,10 +10,8 @@ import { updateOverdueRentals } from '../utils/updateOverdueRentals'
 import { calculateRentalDays, calculateDaysOverdue } from '../utils/rentalCalc'
 import { PAYMENT_METHODS, isNonNegativeAmount } from '../utils/validate'
 import {
-  bookingPaymentsToCreate,
   computePickupDue,
   depositPaidAmount,
-  pickupPaymentsToCreate,
   rentalPaidAmount,
 } from '../utils/rentalPayments'
 
@@ -98,6 +96,7 @@ function mapRentalDetail(r: any): object {
     totalRentalAmount,
     rentalPaid,
     rentalDue,
+    depositPaid,
     depositDue,
     amountDueOnPickup: rentalDue + depositDue,
     canPickup,
@@ -206,6 +205,8 @@ router.post('/', async (req: Request, res: Response) => {
     depositAmount,
     paymentMethod,
     paymentPlan = 'FULL_UPFRONT',
+    rentCollectedNow,
+    depositCollectedNow,
     notes,
     items,
     autoPickup,
@@ -224,6 +225,12 @@ router.post('/', async (req: Request, res: Response) => {
   }
   if (!isNonNegativeAmount(depositAmount)) {
     return res.status(400).json({ error: 'depositAmount must be 0 or more' })
+  }
+  if (rentCollectedNow !== undefined && !isNonNegativeAmount(rentCollectedNow)) {
+    return res.status(400).json({ error: 'rentCollectedNow must be 0 or more' })
+  }
+  if (depositCollectedNow !== undefined && !isNonNegativeAmount(depositCollectedNow)) {
+    return res.status(400).json({ error: 'depositCollectedNow must be 0 or more' })
   }
   if (!items.every((i: any) => i?.ornamentId && isNonNegativeAmount(i.ratePerDay))) {
     return res.status(400).json({ error: 'Each item needs an ornament and a valid daily rate' })
@@ -255,21 +262,32 @@ router.post('/', async (req: Request, res: Response) => {
     0
   )
 
-  const bookingPayments = bookingPaymentsToCreate({
-    paymentPlan,
-    totalRentalAmount,
-    depositAmount: Number(depositAmount),
-    method: paymentMethod,
-  })
+  // Staff enter exactly what they collect now (clamped to what's owed); the rest
+  // is tracked as a balance. The payment plan is kept only as a label.
+  const depositTotal = Number(depositAmount)
+  const rentNow = Math.min(Math.max(0, Number(rentCollectedNow ?? 0)), totalRentalAmount)
+  const depositNow = Math.min(Math.max(0, Number(depositCollectedNow ?? 0)), depositTotal)
 
-  const depositCollectedAtBooking = bookingPayments.some((p) => p.type === 'DEPOSIT')
+  const bookingPayments: Array<{ type: PaymentType; amount: number }> = []
+  if (rentNow > 0) {
+    bookingPayments.push({
+      type: rentNow >= totalRentalAmount ? 'RENTAL' : 'RENTAL_ADVANCE',
+      amount: rentNow,
+    })
+  }
+  if (depositNow > 0) {
+    bookingPayments.push({ type: 'DEPOSIT', amount: depositNow })
+  }
+
+  // Deposit is "collected" only when the full agreed deposit is in hand.
+  const depositCollectedAtBooking = depositTotal > 0 && depositNow >= depositTotal
   const today = startOfDay(new Date())
   const pickupDay = startOfDay(rangeStart)
+  // Same-day bookings auto-activate once the deposit (the handover gate) is fully
+  // paid — never with nothing collected.
   const shouldAutoPickup =
     autoPickup === true ||
-    (paymentPlan === 'FULL_UPFRONT' &&
-      depositCollectedAtBooking &&
-      pickupDay.getTime() <= today.getTime())
+    (depositCollectedAtBooking && pickupDay.getTime() <= today.getTime())
 
   // The rental number is derived from a read-then-write, so two near-simultaneous
   // bookings (or a retry after a slow/failed request) can pick the same number and
@@ -343,9 +361,18 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /rentals/:id/pickup
 router.post('/:id/pickup', async (req: Request, res: Response) => {
   const { outletId, id: userId } = (req as AuthRequest).user
-  const { method } = req.body
+  const { method, rentCollected, depositCollected } = req.body
 
   if (!method) return res.status(400).json({ error: 'method required' })
+  if (!PAYMENT_METHODS.includes(method)) {
+    return res.status(400).json({ error: 'Invalid payment method' })
+  }
+  if (rentCollected !== undefined && !isNonNegativeAmount(rentCollected)) {
+    return res.status(400).json({ error: 'rentCollected must be 0 or more' })
+  }
+  if (depositCollected !== undefined && !isNonNegativeAmount(depositCollected)) {
+    return res.status(400).json({ error: 'depositCollected must be 0 or more' })
+  }
 
   const rental = await prisma.rental.findFirst({
     where: { id: req.params.id, outletId },
@@ -374,27 +401,45 @@ router.post('/:id/pickup', async (req: Request, res: Response) => {
     depositPaid
   )
 
-  const pickupPayments = pickupPaymentsToCreate(rental.paymentPlan, rentalDue, depositDue)
+  // Collect what staff entered (default: clear the full balance), capped at what's
+  // owed. Rent may be left partly unpaid — it carries to return. The deposit is the
+  // handover gate: it must be fully collected before the items leave the shop.
+  const rentPay = Math.min(Math.max(0, Number(rentCollected ?? rentalDue)), rentalDue)
+  const depositPay = Math.min(Math.max(0, Number(depositCollected ?? depositDue)), depositDue)
+  if (depositPay < depositDue) {
+    return res.status(400).json({
+      error: `The full deposit must be collected before handover (₹${depositDue} still due).`,
+    })
+  }
 
   await prisma.$transaction(async (tx) => {
-    for (const p of pickupPayments) {
+    if (rentPay > 0) {
       await tx.payment.create({
         data: {
           outletId,
           rentalId: rental.id,
           recordedById: userId,
-          type: p.type,
+          type: rentalPaid + rentPay >= totalRentalAmount ? 'RENTAL_BALANCE' : 'RENTAL_ADVANCE',
           method: method as PaymentMethod,
-          amount: p.amount,
+          amount: rentPay,
+        },
+      })
+    }
+    if (depositPay > 0) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: rental.id,
+          recordedById: userId,
+          type: 'DEPOSIT',
+          method: method as PaymentMethod,
+          amount: depositPay,
         },
       })
     }
     await tx.rental.update({
       where: { id: rental.id },
-      data: {
-        status: 'ACTIVE',
-        depositCollected: rental.depositCollected || depositDue > 0 || depositPaid >= depositAmount,
-      },
+      data: { status: 'ACTIVE', depositCollected: true },
     })
   })
 
@@ -407,18 +452,86 @@ router.post('/:id/pickup', async (req: Request, res: Response) => {
 
 // POST /rentals/:id/cancel
 router.post('/:id/cancel', async (req: Request, res: Response) => {
-  const { outletId } = (req as AuthRequest).user
-  const { note } = req.body
+  const { outletId, id: userId } = (req as AuthRequest).user
+  const { note, method, rentRefund, depositRefund } = req.body
 
-  const rental = await prisma.rental.findFirst({ where: { id: req.params.id, outletId } })
+  if (rentRefund !== undefined && !isNonNegativeAmount(rentRefund)) {
+    return res.status(400).json({ error: 'rentRefund must be 0 or more' })
+  }
+  if (depositRefund !== undefined && !isNonNegativeAmount(depositRefund)) {
+    return res.status(400).json({ error: 'depositRefund must be 0 or more' })
+  }
+
+  const rental = await prisma.rental.findFirst({
+    where: { id: req.params.id, outletId },
+    include: { payments: true },
+  })
   if (!rental) return res.status(404).json({ error: 'Not found' })
   if (rental.status !== 'BOOKED') {
     return res.status(400).json({ error: 'Only booked rentals can be cancelled' })
   }
 
-  await prisma.rental.update({
-    where: { id: req.params.id },
-    data: { status: 'CANCELLED', notes: note ? `${rental.notes ?? ''}\nCancelled: ${note}`.trim() : rental.notes },
+  // Refund what was collected (default: everything), capped at what's in hand so we
+  // can never refund more than the customer paid. Staff may keep some as a fee.
+  const rentalPaid = rentalPaidAmount(rental.payments)
+  const depositPaid = depositPaidAmount(rental.payments)
+  const rentBack = Math.min(Math.max(0, Number(rentRefund ?? rentalPaid)), rentalPaid)
+  const depositBack = Math.min(Math.max(0, Number(depositRefund ?? depositPaid)), depositPaid)
+  const depositKept = depositPaid - depositBack
+
+  if ((rentBack > 0 || depositBack > 0) && !PAYMENT_METHODS.includes(method)) {
+    return res.status(400).json({ error: 'A valid payment method is required to record a refund' })
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Rent refund is a negative rent payment, so it nets against rent income.
+    if (rentBack > 0) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: rental.id,
+          recordedById: userId,
+          type: 'RENTAL_REFUND',
+          method: method as PaymentMethod,
+          amount: -rentBack,
+          note: 'Refund on cancellation',
+        },
+      })
+    }
+    if (depositBack > 0) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: rental.id,
+          recordedById: userId,
+          type: 'DEPOSIT_REFUND',
+          method: method as PaymentMethod,
+          amount: depositBack,
+          note: 'Refund on cancellation',
+        },
+      })
+    }
+    // Any deposit not handed back becomes a cancellation fee (income).
+    if (depositKept > 0) {
+      await tx.payment.create({
+        data: {
+          outletId,
+          rentalId: rental.id,
+          recordedById: userId,
+          type: 'DEPOSIT_WITHHELD',
+          method: method as PaymentMethod,
+          amount: depositKept,
+          note: 'Cancellation fee',
+        },
+      })
+    }
+    await tx.rental.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'CANCELLED',
+        notes: note ? `${rental.notes ?? ''}\nCancelled: ${note}`.trim() : rental.notes,
+      },
+    })
   })
 
   const updated = await prisma.rental.findUnique({
@@ -431,11 +544,14 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
 // POST /rentals/:id/return
 router.post('/:id/return', async (req: Request, res: Response) => {
   const { outletId, id: userId } = (req as AuthRequest).user
-  const { method, note, returnedDepositAmount } = req.body
+  const { method, note, returnedDepositAmount, rentCollected } = req.body
 
   if (!method) return res.status(400).json({ error: 'method required' })
   if (!PAYMENT_METHODS.includes(method)) {
     return res.status(400).json({ error: 'Invalid payment method' })
+  }
+  if (rentCollected !== undefined && !isNonNegativeAmount(rentCollected)) {
+    return res.status(400).json({ error: 'rentCollected must be 0 or more' })
   }
 
   const rental = await prisma.rental.findFirst({
@@ -448,43 +564,46 @@ router.post('/:id/return', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Cannot return a booking that has not been picked up' })
   }
 
-  // Any rent still owed (e.g. from an unpaid extension) must be collected here.
+  // Rent still owed (e.g. carried from pickup or an unpaid extension). Staff enter
+  // how much to collect now — default is the full balance, but it may be left
+  // partly unpaid (the shop tracks the remainder).
   const rentalPaid = rentalPaidAmount(rental.payments)
   const rentalDue = Math.max(0, Number(rental.totalRentalAmount) - rentalPaid)
+  const rentPay = Math.min(Math.max(0, Number(rentCollected ?? rentalDue)), rentalDue)
 
-  // Deposit settlement: the staff may return less than the full deposit (e.g.
-  // deduct for damage/late). Default to the full deposit when not specified.
-  const depositTotal = Number(rental.depositAmount)
-  let depositReturned = depositTotal
-  if (rental.depositCollected && returnedDepositAmount !== undefined && returnedDepositAmount !== null) {
-    if (!isNonNegativeAmount(returnedDepositAmount) || Number(returnedDepositAmount) > depositTotal) {
+  // Deposit settlement: staff may return less than what was collected (deduct a
+  // damage/late fee). Cap at what was actually collected — never refund more.
+  const depositPaid = depositPaidAmount(rental.payments)
+  let depositReturned = depositPaid
+  if (depositPaid > 0 && returnedDepositAmount !== undefined && returnedDepositAmount !== null) {
+    if (!isNonNegativeAmount(returnedDepositAmount) || Number(returnedDepositAmount) > depositPaid) {
       return res
         .status(400)
-        .json({ error: `Returned deposit must be between 0 and ${depositTotal}` })
+        .json({ error: `Returned deposit must be between 0 and ${depositPaid}` })
     }
     depositReturned = Number(returnedDepositAmount)
   }
-  const depositWithheld = Math.max(0, depositTotal - depositReturned)
+  const depositWithheld = Math.max(0, depositPaid - depositReturned)
 
   await prisma.$transaction(async (tx) => {
-    if (rentalDue > 0) {
+    if (rentPay > 0) {
       await tx.payment.create({
         data: {
           outletId,
           rentalId: req.params.id,
           recordedById: userId,
-          type: 'RENTAL',
+          type: 'RENTAL_BALANCE',
           method,
-          amount: rentalDue,
+          amount: rentPay,
           note: 'Balance collected at return',
         },
       })
     }
     await tx.rental.update({
       where: { id: req.params.id },
-      data: { status: 'RETURNED', returnedAt: new Date(), depositRefunded: rental.depositCollected },
+      data: { status: 'RETURNED', returnedAt: new Date(), depositRefunded: depositPaid > 0 },
     })
-    if (rental.depositCollected) {
+    if (depositPaid > 0) {
       if (depositReturned > 0) {
         await tx.payment.create({
           data: {

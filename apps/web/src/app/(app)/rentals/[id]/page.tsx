@@ -15,7 +15,6 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { WhatsAppButton } from '@/components/shared/WhatsAppButton'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CopyButton } from '@/components/shared/CopyButton'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
@@ -47,6 +46,12 @@ export default function RentalDetailPage() {
   const [showReschedule, setShowReschedule] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [pickupMethod, setPickupMethod] = useState<PaymentMethod>('CASH')
+  const [pickupRent, setPickupRent] = useState('')
+  const [pickupDeposit, setPickupDeposit] = useState('')
+  const [cancelRentRefund, setCancelRentRefund] = useState('')
+  const [cancelDepositRefund, setCancelDepositRefund] = useState('')
+  const [cancelMethod, setCancelMethod] = useState<PaymentMethod>('CASH')
+  const [cancelNote, setCancelNote] = useState('')
   const [reason, setReason] = useState('')
   const [extendDays, setExtendDays] = useState('1')
   const [extendRate, setExtendRate] = useState('')
@@ -86,7 +91,12 @@ export default function RentalDetailPage() {
   })
 
   const pickupMutation = useMutation({
-    mutationFn: () => api.post(`/rentals/${id}/pickup`, { method: pickupMethod }),
+    mutationFn: () =>
+      api.post(`/rentals/${id}/pickup`, {
+        method: pickupMethod,
+        rentCollected: Number(pickupRent) || 0,
+        depositCollected: Number(pickupDeposit) || 0,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
@@ -99,11 +109,19 @@ export default function RentalDetailPage() {
   })
 
   const cancelMutation = useMutation({
-    mutationFn: () => api.post(`/rentals/${id}/cancel`, {}),
+    mutationFn: () =>
+      api.post(`/rentals/${id}/cancel`, {
+        note: cancelNote || undefined,
+        method: cancelMethod,
+        rentRefund: Number(cancelRentRefund) || 0,
+        depositRefund: Number(cancelDepositRefund) || 0,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.rental(id) })
       queryClient.invalidateQueries({ queryKey: keys.rentals() })
       queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      queryClient.invalidateQueries({ queryKey: keys.payments() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
       setShowCancel(false)
       toast.success('Booking cancelled')
     },
@@ -166,6 +184,26 @@ export default function RentalDetailPage() {
   }
 
   const rescheduleDays = daysBetween(newStart, newDue)
+
+  function openPickup() {
+    if (!rental) return
+    // Pre-fill with the balances owed; staff can collect less rent, but the
+    // deposit field is gated to the full amount before handover.
+    setPickupRent(String(rental.rentalDue ?? 0))
+    setPickupDeposit(String(rental.depositDue ?? 0))
+    setPickupMethod('CASH')
+    setShowPickup(true)
+  }
+
+  function openCancel() {
+    if (!rental) return
+    // Default to refunding everything collected; staff can keep a fee.
+    setCancelRentRefund(String(rental.rentalPaid ?? 0))
+    setCancelDepositRefund(String(rental.depositPaid ?? 0))
+    setCancelMethod('CASH')
+    setCancelNote('')
+    setShowCancel(true)
+  }
 
   function openExtend() {
     setExtendDays('1')
@@ -259,6 +297,14 @@ export default function RentalDetailPage() {
           </div>
         )}
 
+        {isOut && (rental.rentalDue ?? 0) > 0 && (
+          <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200">
+            <p className="text-sm font-semibold text-amber-900">Rent due</p>
+            <RupeeAmount amount={rental.rentalDue ?? 0} size="lg" className="text-amber-900 mt-1" />
+            <p className="text-xs text-amber-800 mt-1">Collect the balance at return.</p>
+          </div>
+        )}
+
         <div>
           <p className="text-sm font-semibold mb-3">Items ({rental.items.length})</p>
           <div className="space-y-2">
@@ -309,7 +355,7 @@ export default function RentalDetailPage() {
         {canAct && (
           <div className="flex flex-wrap gap-2">
             {isBooked && rental.canPickup && (
-              <Button className="flex-1" onClick={() => setShowPickup(true)}>
+              <Button className="flex-1" onClick={openPickup}>
                 <Package className="h-4 w-4" />
                 Complete pickup
               </Button>
@@ -323,7 +369,7 @@ export default function RentalDetailPage() {
             {isBooked && (
               <Button
                 variant="outline"
-                onClick={() => setShowCancel(true)}
+                onClick={openCancel}
                 disabled={cancelMutation.isPending}
               >
                 Cancel
@@ -371,25 +417,29 @@ export default function RentalDetailPage() {
             {rental.payments.length === 0 && (
               <p className="text-sm text-muted">No payments recorded yet</p>
             )}
-            {rental.payments.map((p) => (
-              <div
-                key={p.id}
-                className="flex justify-between items-center text-sm bg-card border border-border rounded-xl px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</p>
-                  <p className="text-xs text-muted mt-0.5">
-                    {p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}
-                  </p>
-                </div>
-                <span
-                  className={`font-display font-semibold ${p.type === 'DEPOSIT_REFUND' ? 'text-red-600' : 'text-green-700'}`}
+            {rental.payments.map((p) => {
+              // Refunds (deposit refund, or a negative rent refund) are money out.
+              const isRefund = p.type === 'DEPOSIT_REFUND' || p.amount < 0
+              return (
+                <div
+                  key={p.id}
+                  className="flex justify-between items-center text-sm bg-card border border-border rounded-xl px-4 py-3"
                 >
-                  {p.type === 'DEPOSIT_REFUND' ? '−' : '+'}
-                  {formatINR(p.amount)}
-                </span>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-medium capitalize">{p.type.replace(/_/g, ' ').toLowerCase()}</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {p.method.replace(/_/g, ' ')} · {formatDate(p.createdAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={`font-display font-semibold ${isRefund ? 'text-red-600' : 'text-green-700'}`}
+                  >
+                    {isRefund ? '−' : '+'}
+                    {formatINR(Math.abs(p.amount))}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -411,8 +461,31 @@ export default function RentalDetailPage() {
             <h3 className="font-semibold">Complete pickup</h3>
             {(rental.amountDueOnPickup ?? 0) > 0 ? (
               <>
-                <p className="text-sm text-muted">Collect from customer:</p>
-                <RupeeAmount amount={rental.amountDueOnPickup ?? 0} size="lg" />
+                <p className="text-sm text-muted">Collect from customer (edit if collecting less):</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted">Rent (due {formatINR(rental.rentalDue ?? 0)})</p>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={rental.rentalDue ?? 0}
+                      value={pickupRent}
+                      onChange={(e) => setPickupRent(e.target.value)}
+                      disabled={(rental.rentalDue ?? 0) === 0}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted">Deposit (due {formatINR(rental.depositDue ?? 0)})</p>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={rental.depositDue ?? 0}
+                      value={pickupDeposit}
+                      onChange={(e) => setPickupDeposit(e.target.value)}
+                      disabled={(rental.depositDue ?? 0) === 0}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label>Payment method</Label>
                   <Select value={pickupMethod} onChange={(e) => setPickupMethod(e.target.value as PaymentMethod)}>
@@ -421,6 +494,17 @@ export default function RentalDetailPage() {
                     <option value="BANK_TRANSFER">Bank Transfer</option>
                   </Select>
                 </div>
+                {(Number(pickupDeposit) || 0) < (rental.depositDue ?? 0) && (
+                  <p className="text-xs text-amber-700">
+                    The full deposit ({formatINR(rental.depositDue ?? 0)}) must be collected before handover.
+                  </p>
+                )}
+                {(rental.rentalDue ?? 0) - (Number(pickupRent) || 0) > 0 && (
+                  <p className="text-xs text-muted">
+                    Rent balance of {formatINR((rental.rentalDue ?? 0) - (Number(pickupRent) || 0))} will be
+                    collected at return.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-sm text-muted">All payments collected. Mark ornaments as picked up?</p>
@@ -431,7 +515,10 @@ export default function RentalDetailPage() {
               </Button>
               <Button
                 className="flex-1"
-                disabled={pickupMutation.isPending}
+                disabled={
+                  pickupMutation.isPending ||
+                  (Number(pickupDeposit) || 0) < (rental.depositDue ?? 0)
+                }
                 onClick={() => pickupMutation.mutate()}
               >
                 {pickupMutation.isPending ? 'Processing…' : 'Confirm pickup'}
@@ -594,17 +681,78 @@ export default function RentalDetailPage() {
         </div>
       )}
 
-      <ConfirmDialog
-        open={showCancel}
-        title="Cancel this booking?"
-        description="The reserved ornaments will be freed for other customers. This cannot be undone."
-        confirmLabel="Cancel booking"
-        cancelLabel="Keep booking"
-        destructive
-        loading={cancelMutation.isPending}
-        onConfirm={() => cancelMutation.mutate()}
-        onCancel={() => setShowCancel(false)}
-      />
+      {showCancel && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowCancel(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+            <h3 className="font-semibold">Cancel this booking?</h3>
+            <p className="text-sm text-muted">
+              The reserved ornaments will be freed for other customers. This cannot be undone.
+            </p>
+            {((rental.rentalPaid ?? 0) > 0 || (rental.depositPaid ?? 0) > 0) && (
+              <>
+                <p className="text-sm font-medium text-ink">Refund to customer</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted">Rent (paid {formatINR(rental.rentalPaid ?? 0)})</p>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={rental.rentalPaid ?? 0}
+                      value={cancelRentRefund}
+                      onChange={(e) => setCancelRentRefund(e.target.value)}
+                      disabled={(rental.rentalPaid ?? 0) === 0}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted">Deposit (paid {formatINR(rental.depositPaid ?? 0)})</p>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={rental.depositPaid ?? 0}
+                      value={cancelDepositRefund}
+                      onChange={(e) => setCancelDepositRefund(e.target.value)}
+                      disabled={(rental.depositPaid ?? 0) === 0}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Refund method</Label>
+                  <Select value={cancelMethod} onChange={(e) => setCancelMethod(e.target.value as PaymentMethod)}>
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </Select>
+                </div>
+                {(rental.depositPaid ?? 0) - (Number(cancelDepositRefund) || 0) > 0 && (
+                  <p className="text-xs text-muted">
+                    Keeping {formatINR((rental.depositPaid ?? 0) - (Number(cancelDepositRefund) || 0))} of the
+                    deposit as a cancellation fee.
+                  </p>
+                )}
+              </>
+            )}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowCancel(false)}
+                disabled={cancelMutation.isPending}
+              >
+                Keep booking
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={cancelMutation.isPending}
+                onClick={() => cancelMutation.mutate()}
+              >
+                {cancelMutation.isPending ? 'Cancelling…' : 'Cancel booking'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
