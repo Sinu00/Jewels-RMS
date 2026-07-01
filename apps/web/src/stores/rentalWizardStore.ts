@@ -21,6 +21,7 @@ interface RentalWizardState {
   totalAmount: () => number
 
   setStep: (step: WizardStep) => void
+  setTotalAmount: (amount: number) => void
   setDates: (startDate: string, dueDate: string) => void
   addItem: (ornament: Ornament, ratePerDay: number) => void
   removeItem: (ornamentId: string) => void
@@ -67,10 +68,49 @@ export const useRentalWizardStore = create<RentalWizardState>((set, get) => ({
   totalAmount: () => {
     const { selectedItems } = get()
     const days = get().totalDays()
-    return selectedItems.reduce((sum, item) => sum + item.ratePerDay * days, 0)
+    // Round each line on its own, then sum — so the total always matches the
+    // per-item subtotals shown in the list (see lineSubtotal in the API).
+    return selectedItems.reduce((sum, item) => sum + Math.round(item.ratePerDay * days), 0)
   },
 
   setStep: (step) => set({ step }),
+
+  // Let staff type the final rental total; back-solve per-item day rates so the
+  // agreed total is split across items (proportional to their current rates)
+  // instead of the client dividing by hand.
+  setTotalAmount: (amount) =>
+    set((s) => {
+      const days = get().totalDays()
+      const items = s.selectedItems
+      if (items.length === 0 || days <= 0) return s
+      const target = Math.max(0, Math.round(amount))
+
+      // Weight each item by its current subtotal so existing discounts are kept.
+      const weights = items.map((i) => Math.max(0, i.ratePerDay) * days)
+      const weightSum = weights.reduce((a, b) => a + b, 0)
+      const ideal =
+        weightSum > 0
+          ? weights.map((w) => (target * w) / weightSum)
+          : items.map(() => target / items.length)
+
+      // Largest-remainder rounding: whole-rupee subtotals that sum to exactly `target`.
+      const subtotals = ideal.map((v) => Math.floor(v))
+      let remainder = target - subtotals.reduce((a, b) => a + b, 0)
+      const byFrac = ideal
+        .map((v, idx) => ({ idx, frac: v - Math.floor(v) }))
+        .sort((a, b) => b.frac - a.frac)
+      for (let k = 0; k < byFrac.length && remainder > 0; k++) {
+        subtotals[byFrac[k].idx] += 1
+        remainder--
+      }
+
+      return {
+        selectedItems: items.map((i, idx) => ({
+          ...i,
+          ratePerDay: Math.round((subtotals[idx] / days) * 100) / 100,
+        })),
+      }
+    }),
   setDates: (startDate, dueDate) => set({ startDate, dueDate, selectedItems: [] }),
   setCustomer: (customer) => set({ customer }),
   setIsNewCustomer: (v) => set({ isNewCustomer: v }),

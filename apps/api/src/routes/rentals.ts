@@ -7,7 +7,7 @@ import { generateRentalNumber } from '../utils/rentalNumber'
 import { ACTIVE_STATUSES, getConflictingOrnamentIds } from '../utils/availability'
 import { dateOnlyRange } from '../utils/dateOnly'
 import { updateOverdueRentals } from '../utils/updateOverdueRentals'
-import { calculateRentalDays, calculateDaysOverdue } from '../utils/rentalCalc'
+import { calculateRentalDays, calculateDaysOverdue, lineSubtotal, computeRentalTotal } from '../utils/rentalCalc'
 import { PAYMENT_METHODS, isNonNegativeAmount } from '../utils/validate'
 import {
   computePickupDue,
@@ -68,7 +68,7 @@ function mapRentalDetail(r: any): object {
       })),
     },
     ratePerDay: Number(item.ratePerDay),
-    totalAmount: Number(item.ratePerDay) * days,
+    totalAmount: lineSubtotal(item.ratePerDay, days),
   }))
 
   const today = startOfDay(new Date())
@@ -257,10 +257,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   const rentalDays = calculateRentalDays(startDate, dueDate)
-  const totalRentalAmount = items.reduce(
-    (sum: number, item: any) => sum + Number(item.ratePerDay) * rentalDays,
-    0
-  )
+  const totalRentalAmount = computeRentalTotal(items, rentalDays)
 
   // Staff enter exactly what they collect now (clamped to what's owed); the rest
   // is tracked as a balance. The payment plan is kept only as a label.
@@ -676,7 +673,7 @@ router.post('/:id/extend', async (req: Request, res: Response) => {
   }
 
   // Extra charge: caller-provided amount, else default to per-day rate × extra days.
-  const defaultAmount = rental.items.reduce((sum, i) => sum + Number(i.ratePerDay) * days, 0)
+  const defaultAmount = computeRentalTotal(rental.items, days)
   const extraAmount =
     amount !== undefined && amount !== null && Number(amount) >= 0 ? Number(amount) : defaultAmount
 
@@ -762,10 +759,7 @@ router.post('/:id/reschedule', async (req: Request, res: Response) => {
 
   // Recompute rent for the new duration; allow a manual override from the caller.
   const rentalDays = calculateRentalDays(startDate, dueDate)
-  const computedTotal = rental.items.reduce(
-    (sum, item) => sum + Number(item.ratePerDay) * rentalDays,
-    0
-  )
+  const computedTotal = computeRentalTotal(rental.items, rentalDays)
   const finalTotal =
     totalRentalAmount !== undefined && totalRentalAmount !== null && Number(totalRentalAmount) >= 0
       ? Number(totalRentalAmount)

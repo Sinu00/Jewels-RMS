@@ -1,17 +1,28 @@
 'use client'
 
+import { useState } from 'react'
 import { formatINR, formatDate } from '@/lib/formatters'
 import { useRentalWizardStore } from '@/stores/rentalWizardStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RupeeAmount } from '@/components/shared/RupeeAmount'
 
 export function Step4Pricing() {
-  const { selectedItems, startDate, dueDate, updateItemRate, setStep, setDeposit, depositAmount, totalDays, totalAmount } =
+  const { selectedItems, startDate, dueDate, updateItemRate, setStep, setDeposit, depositAmount, totalDays, totalAmount, setTotalAmount } =
     useRentalWizardStore()
   const days = totalDays()
   const total = totalAmount()
+
+  // While the total field is focused, show the raw draft; otherwise mirror the
+  // live total (which updates as per-item rates change). Committing on blur/Enter
+  // splits the typed total back across the items.
+  const [totalDraft, setTotalDraft] = useState<string | null>(null)
+  const commitTotal = () => {
+    if (totalDraft === null) return
+    const v = Number(totalDraft)
+    if (Number.isFinite(v) && v >= 0) setTotalAmount(v)
+    setTotalDraft(null)
+  }
 
   return (
     <div className="space-y-6">
@@ -50,10 +61,10 @@ export function Step4Pricing() {
                   <span className="text-xs text-muted whitespace-nowrap">/ day</span>
                 </div>
                 <div className="shrink-0 px-4 py-3 text-right border-l border-border">
-                  <p className="text-base font-display font-semibold text-ink">{formatINR(subtotal)}</p>
+                  <p className="text-base font-display font-semibold text-ink">{formatINR(Math.round(subtotal))}</p>
                   {isDiscounted && (
                     <p className="text-xs text-muted line-through mt-0.5">
-                      {formatINR(item.ornament.baseRatePerDay * days)}
+                      {formatINR(Math.round(item.ornament.baseRatePerDay * days))}
                     </p>
                   )}
                   {days > 1 && <p className="text-xs text-muted mt-0.5">× {days} days</p>}
@@ -64,9 +75,30 @@ export function Step4Pricing() {
         })}
       </div>
 
-      <div className="flex items-center justify-between bg-surface border border-border rounded-2xl px-5 py-4">
-        <span className="font-semibold text-ink">Rental total</span>
-        <RupeeAmount amount={total} size="lg" className="text-ink" />
+      <div className="flex items-center justify-between bg-surface border border-border rounded-2xl px-4 py-3">
+        <div>
+          <p className="font-semibold text-ink">Rental total</p>
+          <p className="text-xs text-muted mt-0.5">Edit to split across items</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-lg text-muted font-medium">₹</span>
+          <Input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={totalDraft ?? String(total)}
+            onFocus={() => setTotalDraft(String(total))}
+            onChange={(e) => setTotalDraft(e.target.value)}
+            onBlur={commitTotal}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitTotal()
+                ;(e.target as HTMLInputElement).blur()
+              }
+            }}
+            className="h-11 w-32 text-right font-display font-semibold text-lg border-0 bg-card rounded-xl px-3"
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">
