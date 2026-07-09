@@ -777,4 +777,89 @@ router.post('/:id/reschedule', async (req: Request, res: Response) => {
   res.json(mapRentalDetail(updated))
 })
 
+// POST /rentals/:id/swap-item — replace one booked ornament with a different one
+router.post('/:id/swap-item', async (req: Request, res: Response) => {
+  const { outletId } = (req as AuthRequest).user
+  const { itemId, newOrnamentId, newRatePerDay, totalRentalAmount } = req.body
+
+  if (!itemId || !newOrnamentId) {
+    return res.status(400).json({ error: 'itemId and newOrnamentId are required' })
+  }
+  if (newRatePerDay !== undefined && newRatePerDay !== null && !isNonNegativeAmount(newRatePerDay)) {
+    return res.status(400).json({ error: 'newRatePerDay must be 0 or more' })
+  }
+
+  const rental = await prisma.rental.findFirst({
+    where: { id: req.params.id, outletId },
+    include: { items: true },
+  })
+  if (!rental) return res.status(404).json({ error: 'Not found' })
+  if (rental.status !== 'BOOKED') {
+    return res.status(400).json({ error: 'Only bookings can have their ornaments changed' })
+  }
+
+  const item = rental.items.find((i) => i.id === itemId)
+  if (!item) return res.status(400).json({ error: 'Item not found on this rental' })
+
+  // The replacement can't already be on this rental (would double-book the same piece).
+  if (rental.items.some((i) => i.id !== itemId && i.ornamentId === newOrnamentId)) {
+    return res.status(400).json({ error: 'That ornament is already on this rental' })
+  }
+
+  const newOrnament = await prisma.ornament.findFirst({
+    where: { id: newOrnamentId, outletId, isDeleted: false },
+  })
+  if (!newOrnament) return res.status(400).json({ error: 'Replacement ornament not found' })
+
+  // Make sure the replacement is free for this booking's dates (ignoring this rental,
+  // so re-selecting the same piece or its own dates never falsely conflicts).
+  if (newOrnamentId !== item.ornamentId) {
+    const conflicts = await getConflictingOrnamentIds(
+      [newOrnamentId],
+      new Date(rental.startDate),
+      new Date(rental.dueDate),
+      rental.id
+    )
+    if (conflicts.length > 0) {
+      return res.status(400).json({
+        error: 'That ornament is not available for this booking’s dates',
+        conflicts,
+      })
+    }
+  }
+
+  const finalRate =
+    newRatePerDay !== undefined && newRatePerDay !== null ? Number(newRatePerDay) : Number(item.ratePerDay)
+
+  // Recompute rent for the post-swap item list; allow a manual override from the caller.
+  const rentalDays = calculateRentalDays(rental.startDate, rental.dueDate)
+  const updatedItems = rental.items.map((i) => ({
+    ratePerDay: i.id === itemId ? finalRate : Number(i.ratePerDay),
+  }))
+  const computedTotal = computeRentalTotal(updatedItems, rentalDays)
+  const finalTotal =
+    totalRentalAmount !== undefined && totalRentalAmount !== null && Number(totalRentalAmount) >= 0
+      ? Number(totalRentalAmount)
+      : computedTotal
+
+  // Repointing the RentalItem to the new ornament frees the old one automatically —
+  // its only blocking link to this booking is gone.
+  await prisma.$transaction(async (tx) => {
+    await tx.rentalItem.update({
+      where: { id: itemId },
+      data: { ornamentId: newOrnamentId, ratePerDay: finalRate },
+    })
+    await tx.rental.update({
+      where: { id: rental.id },
+      data: { totalRentalAmount: finalTotal },
+    })
+  })
+
+  const updated = await prisma.rental.findUnique({
+    where: { id: req.params.id },
+    include: rentalDetailInclude,
+  })
+  res.json(mapRentalDetail(updated))
+})
+
 export default router

@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { MessageCircle, Calendar, AlertTriangle, Phone, Package, CalendarClock } from 'lucide-react'
+import { MessageCircle, Calendar, AlertTriangle, Phone, Package, CalendarClock, Check, Repeat } from 'lucide-react'
 import { api } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { keys } from '@/lib/queryKeys'
+import { useDebounce } from '@/hooks/useDebounce'
 import { formatINR, formatDate, formatDateInput, buildBillMessage, buildBookingMessage, buildReminderMessage } from '@/lib/formatters'
 import { PAYMENT_PLAN_LABELS } from '@rental/types'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,6 +18,7 @@ import { RupeeAmount } from '@/components/shared/RupeeAmount'
 import { WhatsAppButton } from '@/components/shared/WhatsAppButton'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { CopyButton } from '@/components/shared/CopyButton'
+import { SearchInput } from '@/components/shared/SearchInput'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/layout/PageHeader'
-import type { Rental, PaymentMethod } from '@rental/types'
+import type { Rental, PaymentMethod, Ornament, PaginatedResponse, RentalItemDetail } from '@rental/types'
 
 function daysBetween(start: string, end: string): number {
   if (!start || !end) return 0
@@ -61,10 +64,53 @@ export default function RentalDetailPage() {
   const [newDue, setNewDue] = useState('')
   const [newTotal, setNewTotal] = useState('')
   const [rescheduleError, setRescheduleError] = useState('')
+  const [showSwap, setShowSwap] = useState(false)
+  const [swapItemId, setSwapItemId] = useState('')
+  const [swapOldRate, setSwapOldRate] = useState(0)
+  const [swapOrnament, setSwapOrnament] = useState<Ornament | null>(null)
+  const [swapRate, setSwapRate] = useState('')
+  const [swapTotal, setSwapTotal] = useState('')
+  const [swapSearch, setSwapSearch] = useState('')
+  const [swapError, setSwapError] = useState('')
+  const debouncedSwapSearch = useDebounce(swapSearch)
 
   const { data: rental, isLoading } = useQuery<Rental>({
     queryKey: keys.rental(id),
     queryFn: async () => (await api.get(`/rentals/${id}`)).data,
+  })
+
+  // Ornaments free for this booking's dates — the replacement pool. Only fetched
+  // while the swap modal is open. The currently-booked piece is excluded (it's held
+  // by this rental), which is fine: the point is to switch to a different one.
+  const swapStart = rental ? formatDateInput(rental.startDate) : ''
+  const swapDue = rental ? formatDateInput(rental.dueDate) : ''
+  const { data: swapPool, isLoading: swapLoading } = useQuery<PaginatedResponse<Ornament>>({
+    queryKey: keys.ornaments({ swapFor: id, search: debouncedSwapSearch, startDate: swapStart, dueDate: swapDue }),
+    queryFn: async () => {
+      const params = new URLSearchParams({ available: 'true', startDate: swapStart, dueDate: swapDue, limit: '40' })
+      if (debouncedSwapSearch) params.set('search', debouncedSwapSearch)
+      return (await api.get(`/ornaments?${params}`)).data
+    },
+    enabled: showSwap && !!rental,
+  })
+
+  const swapMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/rentals/${id}/swap-item`, {
+        itemId: swapItemId,
+        newOrnamentId: swapOrnament?.id,
+        newRatePerDay: Number(swapRate) || 0,
+        totalRentalAmount: swapTotal === '' ? undefined : Number(swapTotal),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.rental(id) })
+      queryClient.invalidateQueries({ queryKey: keys.rentals() })
+      queryClient.invalidateQueries({ queryKey: keys.ornaments() })
+      queryClient.invalidateQueries({ queryKey: keys.dashboard() })
+      setShowSwap(false)
+      toast.success('Ornament changed')
+    },
+    onError: (err: any) => setSwapError(err.response?.data?.error ?? 'Failed to change ornament'),
   })
 
   const extendMutation = useMutation({
@@ -214,10 +260,50 @@ export default function RentalDetailPage() {
     setShowExtend(true)
   }
 
+  // Rental duration in days — used to re-price the total when the ornament changes.
+  const swapDays = rental ? daysBetween(rental.startDate, rental.dueDate) : 0
+
+  function openSwap(item: RentalItemDetail) {
+    if (!rental) return
+    setSwapItemId(item.id)
+    setSwapOldRate(item.ratePerDay)
+    setSwapOrnament(null)
+    setSwapRate(String(item.ratePerDay))
+    setSwapTotal(String(rental.totalRentalAmount))
+    setSwapSearch('')
+    setSwapError('')
+    setShowSwap(true)
+  }
+
+  // Re-price: keep every other item's rate, substitute this line's rate, × days.
+  function swapTotalFor(rate: number): string {
+    return String((ratePerDayTotal - swapOldRate + rate) * swapDays)
+  }
+
+  function pickSwapOrnament(o: Ornament) {
+    setSwapOrnament(o)
+    setSwapRate(String(o.baseRatePerDay))
+    setSwapTotal(swapTotalFor(o.baseRatePerDay))
+    setSwapError('')
+  }
+
+  function changeSwapRate(value: string) {
+    setSwapRate(value)
+    setSwapTotal(swapTotalFor(Number(value) || 0))
+  }
+
   // Live preview values for the extend modal.
   const extDays = Math.max(1, parseInt(extendDays) || 1)
   const extRate = Number(extendRate) || 0
   const extAmount = extDays * extRate
+
+  // Swap modal: the line being changed, and the replacement pool minus anything
+  // already on this rental.
+  const swapItem = rental.items.find((i) => i.id === swapItemId)
+  const swapPoolItems = (swapPool?.data ?? []).filter(
+    (o) => !rental.items.some((i) => i.ornamentId === o.id)
+  )
+  const swapNewTotal = Number(swapTotal) || 0
 
   return (
     <div>
@@ -311,15 +397,26 @@ export default function RentalDetailPage() {
             {rental.items.map((item) => (
               <div
                 key={item.id}
-                className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between text-sm"
+                className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-3 text-sm"
               >
-                <div>
-                  <p className="font-medium">{item.ornament.name}</p>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{item.ornament.name}</p>
                   <p className="text-xs text-muted mt-0.5">
                     {item.ornament.itemCode} · {formatINR(item.ratePerDay)}/day
                   </p>
                 </div>
-                <p className="font-display font-semibold text-base">{formatINR(item.totalAmount)}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="font-display font-semibold text-base">{formatINR(item.totalAmount)}</p>
+                  {isBooked && (
+                    <button
+                      onClick={() => openSwap(item)}
+                      className="flex items-center gap-1 text-xs font-medium text-muted hover:text-ink bg-surface border border-border rounded-full px-2.5 py-1 transition-colors"
+                    >
+                      <Repeat className="h-3 w-3" />
+                      Change
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -578,6 +675,133 @@ export default function RentalDetailPage() {
                 onClick={() => { setRescheduleError(''); rescheduleMutation.mutate() }}
               >
                 {rescheduleMutation.isPending ? 'Saving...' : 'Save dates'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSwap && swapItem && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={() => setShowSwap(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm md:max-w-md shadow-xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+            <h3 className="font-semibold">Change ornament</h3>
+
+            <div className="rounded-xl bg-surface border border-border px-3 py-2.5">
+              <p className="text-xs text-muted">Currently booked</p>
+              <p className="text-sm font-medium mt-0.5">{swapItem.ornament.name}</p>
+              <p className="text-xs text-muted">
+                {swapItem.ornament.itemCode} · {formatINR(swapItem.ratePerDay)}/day
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Frees up when you swap · {swapDays} day{swapDays !== 1 ? 's' : ''} booking
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Replace with</Label>
+              <SearchInput
+                placeholder="Search available ornaments…"
+                value={swapSearch}
+                onChange={(e) => setSwapSearch(e.target.value)}
+                onClear={swapSearch ? () => setSwapSearch('') : undefined}
+              />
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto">
+                {swapLoading && (
+                  <p className="text-sm text-muted col-span-full py-4 text-center">Loading…</p>
+                )}
+                {!swapLoading && swapPoolItems.length === 0 && (
+                  <p className="text-sm text-muted col-span-full py-4 text-center">
+                    No other ornaments available for these dates
+                  </p>
+                )}
+                {swapPoolItems.map((o) => {
+                  const isSel = swapOrnament?.id === o.id
+                  return (
+                    <button
+                      key={o.id}
+                      onClick={() => pickSwapOrnament(o)}
+                      className={`flex flex-col rounded-xl border overflow-hidden text-left transition-all ${
+                        isSel ? 'border-ink ring-2 ring-ink ring-offset-1' : 'border-border hover:border-ink/30'
+                      }`}
+                    >
+                      <div className="aspect-square relative bg-surface">
+                        {o.images[0] ? (
+                          <Image src={o.images[0].url} alt={o.name} fill className="object-cover" sizes="90px" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xl">💍</div>
+                        )}
+                        {isSel && (
+                          <div className="absolute top-1 right-1 h-5 w-5 rounded-full bg-ink text-white flex items-center justify-center shadow-sm">
+                            <Check className="h-3 w-3" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-1.5">
+                        <p className="text-[10px] font-mono text-muted truncate">{o.itemCode}</p>
+                        <p className="text-[11px] font-medium leading-tight line-clamp-2">{o.name}</p>
+                        <p className="text-[10px] text-muted mt-0.5">{formatINR(o.baseRatePerDay)}/day</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {swapOrnament && (
+              <div className="space-y-1.5">
+                <Label>Price per day (₹)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={swapRate}
+                  onChange={(e) => changeSwapRate(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label>Rental total (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={swapTotal}
+                onChange={(e) => setSwapTotal(e.target.value)}
+              />
+              <p className="text-xs text-muted">Auto-calculated from the new rate — edit if needed.</p>
+            </div>
+
+            <div className="rounded-xl bg-surface border border-border px-3 py-2.5 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted">Rent paid so far</span>
+                <span className="font-medium">{formatINR(rental.rentalPaid ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Payable (rent balance)</span>
+                <span className="font-medium">{formatINR(Math.max(0, swapNewTotal - (rental.rentalPaid ?? 0)))}</span>
+              </div>
+              {(rental.depositPaid ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted">Deposit paid</span>
+                  <span className="font-medium">{formatINR(rental.depositPaid ?? 0)}</span>
+                </div>
+              )}
+            </div>
+
+            {swapError && (
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{swapError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowSwap(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!swapOrnament || swapMutation.isPending}
+                onClick={() => { setSwapError(''); swapMutation.mutate() }}
+              >
+                {swapMutation.isPending ? 'Saving…' : 'Change ornament'}
               </Button>
             </div>
           </div>

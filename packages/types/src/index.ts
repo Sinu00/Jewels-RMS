@@ -216,6 +216,13 @@ export interface RescheduleRentalDto {
   totalRentalAmount?: number
 }
 
+export interface SwapRentalItemDto {
+  itemId: string
+  newOrnamentId: string
+  newRatePerDay?: number
+  totalRentalAmount?: number
+}
+
 export interface CreateCustomerDto {
   name: string
   phone: string
