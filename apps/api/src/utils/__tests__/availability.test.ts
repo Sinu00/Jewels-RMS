@@ -2,9 +2,11 @@ import { describe, it, expect, vi } from 'vitest'
 
 // availability.ts imports the Prisma client at module load. The two things under
 // test here are pure, so stub the client out rather than standing up a database.
+// vi.mock is hoisted above the imports, so the stub is in place before
+// availability.ts is evaluated — no dynamic import needed.
 vi.mock('../../lib/prisma', () => ({ prisma: {} }))
 
-const { BLOCKING_STATUSES, ACTIVE_STATUSES, rentalDateOverlapFilter } = await import('../availability')
+import { BLOCKING_STATUSES, ACTIVE_STATUSES, rentalDateOverlapFilter } from '../availability'
 
 /**
  * A piece of jewellery can only be on one booking at a time, so double-booking

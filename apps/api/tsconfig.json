@@ -15,5 +15,7 @@
     }
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  // Tests are run by Vitest, never compiled into dist/ — and they use ESM
+  // syntax the CommonJS build target rejects. Keep them out of `pnpm build`.
+  "exclude": ["node_modules", "dist", "**/__tests__", "**/*.test.ts"]
 }
