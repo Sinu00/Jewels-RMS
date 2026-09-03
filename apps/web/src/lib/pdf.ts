@@ -1,7 +1,7 @@
 // Client-side PDF reports (jsPDF + autotable). Loaded on demand via dynamic
 // import so the libraries never ship in the initial bundle — only when a user
 // actually clicks a Download button. Keeping this off the server also spares
-// the small droplet any rendering load.
+// the small Lightsail instance any rendering load.
 import { formatDate } from './formatters'
 
 interface PdfMeta {

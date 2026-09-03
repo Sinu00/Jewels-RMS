@@ -1,4 +1,4 @@
-// PM2 process definitions for the single-droplet deploy.
+// PM2 process definitions for the single-instance deploy (AWS Lightsail).
 // Start with:  pm2 start ecosystem.config.js && pm2 save
 // The API reads its secrets from apps/api/.env (loaded via dotenv/config),
 // so cwd must stay apps/api. The web app reads apps/web/.env.local.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Redeploy after the first install. Run from the repo root on the droplet:
+# Redeploy after the first install. Run from the repo root on the server:
 #   ./deploy.sh
 set -euo pipefail
 

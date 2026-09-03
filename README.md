@@ -349,7 +349,7 @@ Authentication: `Authorization: Bearer <token>` on all routes except `POST /auth
 
 ## Production deployment
 
-Designed for a **single VPS** (e.g. DigitalOcean, AWS EC2) with:
+Runs on a **single VPS** — AWS Lightsail in production — with:
 
 - **PM2** — runs API (`apps/api/dist`) and web (`next start`) as `rms-api` and `rms-web`
 - **Caddy** — automatic HTTPS, routes `/api/*` and `/uploads/*` to the API

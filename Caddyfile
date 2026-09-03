@@ -1,4 +1,4 @@
-# Caddy reverse proxy for the single-droplet deploy.
+# Caddy reverse proxy for the single-instance deploy (AWS Lightsail).
 # Place at /etc/caddy/Caddyfile, then: sudo systemctl reload caddy
 # Caddy auto-provisions + renews HTTPS (Let's Encrypt) for this domain.
 #
